@@ -15,105 +15,48 @@ interface ChartData {
   color?: string;
 }
 
+interface AnalyticsDataProps {
+  metrics: MetricCard[];
+  shipmentData: ChartData[];
+  revenueData: ChartData[];
+  routeData: ChartData[];
+}
+
 interface AnalyticsDashboardProps {
   className?: string;
   timeRange?: '7d' | '30d' | '90d' | '1y';
+  data?: AnalyticsDataProps; // Add data prop
 }
 
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ 
-  className, 
-  timeRange = '30d' 
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
+  className,
+  timeRange = '30d',
+  data
 }) => {
-  const [metrics, setMetrics] = useState<MetricCard[]>([]);
-  const [shipmentData, setShipmentData] = useState<ChartData[]>([]);
-  const [revenueData, setRevenueData] = useState<ChartData[]>([]);
-  const [routeData, setRouteData] = useState<ChartData[]>([]);
+  // Use passed data or fall back to defaults
+  const metrics = data?.metrics || [
+    { title: 'Total Shipments', value: '0', change: 0, trend: 'stable', icon: '📦' },
+    { title: 'Revenue', value: '£0', change: 0, trend: 'stable', icon: '💰' },
+    { title: 'On-Time', value: '0%', change: 0, trend: 'stable', icon: '⏰' },
+    { title: 'CSAT', value: 'N/A', change: 0, trend: 'stable', icon: '⭐' }
+  ];
+  const shipmentData = data?.shipmentData || [];
+  const revenueData = data?.revenueData || [];
+  const routeData = data?.routeData || [];
 
-  useEffect(() => {
-    // Mock real-time analytics data
-    const mockMetrics: MetricCard[] = [
-      {
-        title: 'Total Shipments',
-        value: '1,247',
-        change: 12.5,
-        trend: 'up',
-        icon: '📦'
-      },
-      {
-        title: 'Revenue',
-        value: '£2.4M',
-        change: 8.2,
-        trend: 'up',
-        icon: '💰'
-      },
-      {
-        title: 'On-Time Delivery',
-        value: '94.2%',
-        change: 2.1,
-        trend: 'up',
-        icon: '⏰'
-      },
-      {
-        title: 'Customer Satisfaction',
-        value: '4.8/5',
-        change: -0.3,
-        trend: 'down',
-        icon: '⭐'
-      }
-    ];
+  // (Removed mock useEffect)
 
-    const mockShipmentData: ChartData[] = [
-      { label: 'Jan', value: 85 },
-      { label: 'Feb', value: 92 },
-      { label: 'Mar', value: 78 },
-      { label: 'Apr', value: 105 },
-      { label: 'May', value: 118 },
-      { label: 'Jun', value: 134 },
-      { label: 'Jul', value: 147 }
-    ];
-
-    const mockRevenueData: ChartData[] = [
-      { label: 'Ocean Freight', value: 45, color: '#3B82F6' },
-      { label: 'Air Freight', value: 25, color: '#10B981' },
-      { label: 'Road Transport', value: 20, color: '#F59E0B' },
-      { label: 'Customs', value: 10, color: '#8B5CF6' }
-    ];
-
-    const mockRouteData: ChartData[] = [
-      { label: 'UK-EU', value: 40, color: '#EF4444' },
-      { label: 'UK-US', value: 30, color: '#3B82F6' },
-      { label: 'UK-Asia', value: 20, color: '#10B981' },
-      { label: 'UK-Other', value: 10, color: '#F59E0B' }
-    ];
-
-    setMetrics(mockMetrics);
-    setShipmentData(mockShipmentData);
-    setRevenueData(mockRevenueData);
-    setRouteData(mockRouteData);
-
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setMetrics(prev => prev.map(metric => ({
-        ...metric,
-        value: metric.title === 'Total Shipments' 
-          ? (parseInt(metric.value.replace(',', '')) + Math.floor(Math.random() * 3)).toLocaleString()
-          : metric.value
-      })));
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [timeRange]);
 
   const renderBarChart = (data: ChartData[], title: string) => {
     const maxValue = Math.max(...data.map(d => d.value));
-    
+
     return (
       <div className="bg-white p-6 rounded-lg border border-gray-200">
         <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
         <div className="h-64 flex items-end justify-between space-x-2">
           {data.map((item, index) => (
             <div key={index} className="flex flex-col items-center flex-1">
-              <div 
+              <div
                 className="bg-primary w-full rounded-t transition-all duration-500 hover:bg-primary/80"
                 style={{ height: `${(item.value / maxValue) * 200}px` }}
                 title={`${item.label}: ${item.value}`}
@@ -129,7 +72,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   const renderPieChart = (data: ChartData[], title: string) => {
     const total = data.reduce((sum, item) => sum + item.value, 0);
-    
+
     return (
       <div className="bg-white p-6 rounded-lg border border-gray-200">
         <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
@@ -148,7 +91,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           {data.map((item, index) => (
             <div key={index} className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div 
+                <div
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: item.color }}
                 />
@@ -163,10 +106,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   };
 
   const renderMetricCard = (metric: MetricCard) => {
-    const trendColor = metric.trend === 'up' ? 'text-green-600' : 
-                      metric.trend === 'down' ? 'text-red-600' : 'text-gray-600';
-    const trendIcon = metric.trend === 'up' ? '↗' : 
-                     metric.trend === 'down' ? '↘' : '→';
+    const trendColor = metric.trend === 'up' ? 'text-green-600' :
+      metric.trend === 'down' ? 'text-red-600' : 'text-gray-600';
+    const trendIcon = metric.trend === 'up' ? '↗' :
+      metric.trend === 'down' ? '↘' : '→';
 
     return (
       <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
@@ -226,7 +169,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {renderPieChart(routeData, 'Shipments by Route')}
-        
+
         {/* Performance Indicators */}
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Performance Indicators</h3>
@@ -240,7 +183,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <div className="bg-green-500 h-2 rounded-full" style={{ width: '92%' }} />
               </div>
             </div>
-            
+
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-600">Documentation Accuracy</span>
@@ -250,7 +193,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <div className="bg-blue-500 h-2 rounded-full" style={{ width: '98%' }} />
               </div>
             </div>
-            
+
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-600">Customer Response Time</span>
@@ -260,7 +203,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '85%' }} />
               </div>
             </div>
-            
+
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-600">Cost Efficiency</span>
@@ -292,11 +235,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             { time: '15 min ago', event: 'Document uploaded for SH-2024-128', type: 'info' }
           ].map((activity, index) => (
             <div key={index} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
-              <div className={`w-2 h-2 rounded-full ${
-                activity.type === 'success' ? 'bg-green-400' :
+              <div className={`w-2 h-2 rounded-full ${activity.type === 'success' ? 'bg-green-400' :
                 activity.type === 'warning' ? 'bg-yellow-400' :
-                'bg-blue-400'
-              }`} />
+                  'bg-blue-400'
+                }`} />
               <div className="flex-1">
                 <p className="text-sm text-gray-900">{activity.event}</p>
                 <p className="text-xs text-gray-500">{activity.time}</p>

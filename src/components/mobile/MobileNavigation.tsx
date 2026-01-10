@@ -18,8 +18,8 @@ const MobileNavigation: React.FC = () => {
   const navItems: MobileNavItem[] = [
     { label: 'Dashboard', path: '/dashboard', icon: '📊', protected: true },
     { label: 'Shipments', path: '/shipments', icon: '🚢', protected: true, badge: 3 },
-    { label: 'Quote', path: '/', icon: '💬', protected: false },
-    { label: 'Payments', path: '/payments', icon: '💰', protected: true, badge: 2 },
+    { label: 'Documents', path: '/documents', icon: '📄', protected: true },
+    { label: 'Quotes', path: '/quotes', icon: '💬', protected: true },
     { label: 'Reports', path: '/reports', icon: '📈', protected: true }
   ];
 

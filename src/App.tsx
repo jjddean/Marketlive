@@ -17,8 +17,12 @@ import {
   ShipmentsPage,
   PaymentsPage,
   CompliancePage,
+  DocumentsPage,
   ReportsPage,
-  AccountPage
+  AccountPage,
+
+  ClientQuotesPage,
+  ClientBookingsPage
 } from './pages';
 import ApiDocsPage from './pages/ApiDocsPage';
 
@@ -134,6 +138,12 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   );
 }
 
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ConvexReactClient } from "convex/react";
+import { useAuth } from "@clerk/clerk-react";
+
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
 function App() {
   // For development purposes, show a placeholder UI when no valid key is available
   if (PUBLISHABLE_KEY === 'pk_test_placeholder_key') {
@@ -170,37 +180,42 @@ function App() {
       </div>
     );
   }
-  
+
   // Normal app with valid Clerk key
   return (
     <BrowserRouter>
       <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-        <Layout>
-          <Routes>
-            {/* Authentication handled via modals */}
+        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+          <Layout>
+            <Routes>
+              {/* Authentication handled via modals */}
 
-            {/* Public Pages */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/services" element={<ServicesPage />} />
-            <Route path="/solutions" element={<SolutionsPage />} />
-            <Route path="/platform" element={<PlatformPage />} />
-            <Route path="/resources" element={<ResourcesPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/api" element={<ApiDocsPage />} />
+              {/* Public Pages */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/services" element={<ServicesPage />} />
+              <Route path="/solutions" element={<SolutionsPage />} />
+              <Route path="/platform" element={<PlatformPage />} />
+              <Route path="/resources" element={<ResourcesPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/api" element={<ApiDocsPage />} />
 
-            {/* Protected User Pages */}
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-            <Route path="/shipments" element={<ProtectedRoute><ShipmentsPage /></ProtectedRoute>} />
-            <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-            <Route path="/compliance" element={<ProtectedRoute><CompliancePage /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-            <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
-            
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
+              {/* Protected User Pages */}
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/shipments" element={<ProtectedRoute><ShipmentsPage /></ProtectedRoute>} />
+              <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+              <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
+              <Route path="/compliance" element={<ProtectedRoute><CompliancePage /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+              <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+              <Route path="/quotes" element={<ProtectedRoute><ClientQuotesPage /></ProtectedRoute>} />
+              <Route path="/bookings" element={<ProtectedRoute><ClientBookingsPage /></ProtectedRoute>} />
+
+              {/* Fallback route */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </ConvexProviderWithClerk>
       </ClerkProvider>
     </BrowserRouter>
   );

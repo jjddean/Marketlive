@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import Footer from '@/components/layout/Footer';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState('invoices');
 
-  const invoices = [
+  // Live payment data from Convex
+  const livePayments = useQuery(api.paymentAttempts.listMyPayments) || [];
+
+  // Hardcoded fallback invoices
+  const HARDCODED_INVOICES = [
     {
       id: 'INV-2024-105',
       date: '2024-07-25',
@@ -51,6 +57,23 @@ const PaymentsPage = () => {
     { id: 2, type: 'Bank Account', last4: '9876', name: 'Business Checking', default: false, bank: 'HSBC' },
   ];
 
+  // Merge live payments with hardcoded fallback
+  const invoices = useMemo(() => {
+    if (livePayments.length > 0) {
+      // Format live payments to match invoice structure
+      return livePayments.map((p: any) => ({
+        id: p.payment_id || p.invoice_id || `PAY-${p._id}`,
+        date: p.created_at ? new Date(p.created_at).toLocaleDateString() : '-',
+        amount: p.totals?.grand_total?.amount || 0,
+        status: p.status === 'completed' ? 'Paid' : p.status === 'pending' ? 'Pending' : p.status || 'Unknown',
+        shipment: p.invoice_id || '-',
+        dueDate: '-',
+        description: `Payment ${p.payment_id || ''}`
+      }));
+    }
+    return HARDCODED_INVOICES;
+  }, [livePayments]);
+
   const invoiceColumns = [
     { key: 'id' as keyof typeof invoices[0], header: 'Invoice ID', sortable: true },
     { key: 'date' as keyof typeof invoices[0], header: 'Date', sortable: true },
@@ -66,12 +89,11 @@ const PaymentsPage = () => {
       header: 'Status',
       sortable: true,
       render: (value: string) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-          value === 'Paid' ? 'bg-green-100 text-green-800' :
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${value === 'Paid' ? 'bg-green-100 text-green-800' :
           value === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-          value === 'Overdue' ? 'bg-red-100 text-red-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
+            value === 'Overdue' ? 'bg-red-100 text-red-800' :
+              'bg-gray-100 text-gray-800'
+          }`}>
           {value}
         </span>
       )
@@ -158,21 +180,19 @@ const PaymentsPage = () => {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('invoices')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'invoices'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'invoices'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Invoices & Payments
               </button>
               <button
                 onClick={() => setActiveTab('methods')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'methods'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'methods'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Payment Methods
               </button>
@@ -205,9 +225,8 @@ const PaymentsPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {paymentMethods.map((method, index) => (
-                <div key={index} className={`bg-white p-6 rounded-lg shadow-sm border-2 ${
-                  method.default ? 'border-primary' : 'border-gray-200'
-                }`}>
+                <div key={index} className={`bg-white p-6 rounded-lg shadow-sm border-2 ${method.default ? 'border-primary' : 'border-gray-200'
+                  }`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">

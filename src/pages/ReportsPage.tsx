@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { createCSVUrl } from '@/lib/export';
+import { toast } from 'sonner';
 import Footer from '@/components/layout/Footer';
 import AnalyticsDashboard from '@/components/charts/AnalyticsDashboard';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 const ReportsPage = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Live data from Convex for analytics
+  const shipments = useQuery(api.shipments.listShipments, {}) || [];
+  const quotes = useQuery(api.quotes.listMyQuotes) || [];
+  const bookings = useQuery(api.bookings.listMyBookings, {}) || [];
+
+  // Compute live stats
+  const liveStats = useMemo(() => ({
+    totalShipments: shipments.length,
+    totalQuotes: quotes.length,
+    totalBookings: bookings.length,
+  }), [shipments, quotes, bookings]);
 
   const recentReports = [
     {
@@ -70,9 +86,8 @@ const ReportsPage = () => {
       header: 'Type',
       sortable: true,
       render: (value: string) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-          value === 'Automated' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-        }`}>
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${value === 'Automated' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+          }`}>
           {value}
         </span>
       )
@@ -81,9 +96,29 @@ const ReportsPage = () => {
     {
       key: 'id' as keyof typeof recentReports[0],
       header: 'Actions',
-      render: (value: string) => (
+      render: (value: string, row: any) => (
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm">Download</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Mock export data for this specific report
+              const mockData = [
+                { id: row.id, name: row.name, date: row.date, status: row.status, metric: 'Value', value: 12345 },
+                { id: row.id, name: row.name, date: row.date, status: row.status, metric: 'Volume', value: 67890 }
+              ];
+              const url = createCSVUrl(mockData);
+              if (url && downloadRef.current) {
+                downloadRef.current.href = url;
+                downloadRef.current.download = `${row.name.replace(/\s+/g, '_')}_${row.date}.csv`;
+                downloadRef.current.click();
+                URL.revokeObjectURL(url); // Clean up the object URL
+                toast.success(`Downloading ${row.name}...`);
+              }
+            }}
+          >
+            Download
+          </Button>
           <Button variant="outline" size="sm">View</Button>
         </div>
       )
@@ -91,7 +126,9 @@ const ReportsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Hidden download anchor */}
+      <a ref={downloadRef} style={{ display: 'none' }} />
       {/* Reports Header */}
       <MediaCardHeader
         title="Analytics & Reports"
@@ -99,7 +136,7 @@ const ReportsPage = () => {
         description="Comprehensive analytics, performance metrics, and detailed reporting for your freight operations."
         backgroundImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
         overlayOpacity={0.6}
-        className="h-20"
+        className="mb-6"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -109,31 +146,28 @@ const ReportsPage = () => {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'dashboard'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'dashboard'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Analytics Dashboard
               </button>
               <button
                 onClick={() => setActiveTab('reports')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'reports'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'reports'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Reports Library
               </button>
               <button
                 onClick={() => setActiveTab('custom')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'custom'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'custom'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Custom Reports
               </button>
@@ -143,7 +177,27 @@ const ReportsPage = () => {
 
         {/* Content Sections */}
         {activeTab === 'dashboard' && (
-          <AnalyticsDashboard />
+          <AnalyticsDashboard
+            data={{
+              metrics: [
+                { title: 'Total Shipments', value: liveStats.totalShipments.toString(), change: 12, trend: 'up', icon: '📦' },
+                { title: 'Active Quotes', value: liveStats.totalQuotes.toString(), change: 5, trend: 'up', icon: '💬' },
+                { title: 'Bookings', value: liveStats.totalBookings.toString(), change: -2, trend: 'down', icon: '📅' },
+                { title: 'Ontime Performance', value: '94%', change: 1.2, trend: 'up', icon: '⚡' }
+              ],
+              shipmentData: monthlyShipments.map(d => ({ label: d.month, value: d.count })),
+              revenueData: carrierDistribution.map((d, i) => ({
+                label: d.carrier,
+                value: d.percentage,
+                color: ['#0ea5e9', '#22c55e', '#eab308', '#f97316', '#64748b'][i]
+              })),
+              routeData: [
+                { label: 'UK-EU', value: 45, color: '#3b82f6' },
+                { label: 'UK-US', value: 30, color: '#22c55e' },
+                { label: 'UK-Asia', value: 25, color: '#f59e0b' }
+              ]
+            }}
+          />
         )}
         {activeTab === 'reports' && (
           <div>

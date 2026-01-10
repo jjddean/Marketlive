@@ -28,51 +28,23 @@ const Navbar: React.FC = () => {
 
   const menuItems: MenuItem[] = [
     { label: 'Home', path: '/', protected: false },
-    { 
-      label: 'Services', 
-      path: '/services',
-      protected: false
-    },
-    { 
-      label: 'Solutions', 
-      path: '/solutions',
-      protected: false
-    },
-    { 
-      label: 'Platform', 
-      path: '/platform',
-      protected: false
-    },
-    { 
-      label: 'Resources', 
-      path: '/resources',
-      protected: false
-    },
-    { 
-      label: 'About', 
-      path: '/about',
-      protected: false
-    },
-    { 
-      label: 'Contact', 
-      path: '/contact',
-      protected: false
-    },
-    {
-      label: 'Dashboard',
-      protected: true,
-      submenu: [
-        { label: 'Overview', path: '/dashboard', protected: true },
-        { label: 'Shipments', path: '/shipments', protected: true },
-        { label: 'Payments', path: '/payments', protected: true },
-        { label: 'Compliance', path: '/compliance', protected: true },
-        { label: 'Reports', path: '/reports', protected: true },
-        { label: 'Account', path: '/account', protected: true },
-      ]
-    },
+    // Marketing pages - only show when signed out
+    { label: 'Services', path: '/services', protected: false, hideOnAuth: true },
+    { label: 'Solutions', path: '/solutions', protected: false, hideOnAuth: true },
+    { label: 'Platform', path: '/platform', protected: false, hideOnAuth: true },
+    { label: 'Resources', path: '/resources', protected: false, hideOnAuth: true },
+    { label: 'About', path: '/about', protected: false, hideOnAuth: true },
+    { label: 'Contact', path: '/contact', protected: false },
 
+    // App pages - always show (protected handles visibility)
+    { label: 'Dashboard', path: '/dashboard', protected: true },
+    { label: 'Shipments', path: '/shipments', protected: true },
+    { label: 'Bookings', path: '/bookings', protected: true },
+    { label: 'Quotes', path: '/quotes', protected: true },
+    { label: 'Documents', path: '/documents', protected: true },
+    { label: 'Compliance', path: '/compliance', protected: true },
+    { label: 'Reports', path: '/reports', protected: true },
   ];
-
   const toggleSubmenu = (label: string) => {
     if (activeMenu === label) {
       setActiveMenu(null);
@@ -89,7 +61,7 @@ const Navbar: React.FC = () => {
         </Link>
 
         <ul className="nav-menu">
-          {menuItems.map((item) => {
+          {menuItems.map((item: any) => {
             // For protected items, only show when signed in
             if (item.protected) {
               return (
@@ -97,7 +69,7 @@ const Navbar: React.FC = () => {
                   <li className="nav-item">
                     {item.submenu ? (
                       <>
-                        <div 
+                        <div
                           className={`nav-link ${activeMenu === item.label ? 'active' : ''}`}
                           onClick={() => toggleSubmenu(item.label)}
                         >
@@ -105,7 +77,7 @@ const Navbar: React.FC = () => {
                         </div>
                         {activeMenu === item.label && (
                           <ul className="submenu">
-                            {item.submenu.map((subItem) => (
+                            {item.submenu.map((subItem: any) => (
                               <li key={subItem.label} className="submenu-item">
                                 <Link to={subItem.path} className="submenu-link">
                                   {subItem.label}
@@ -123,50 +95,24 @@ const Navbar: React.FC = () => {
                   </li>
                 </SignedIn>
               );
-            } else {
-              // Non-protected items are always visible
+            } else if (item.hideOnAuth) {
+              // Marketing items hidden when auth
               return (
-                <li key={item.label} className="nav-item">
-                  {item.submenu ? (
-                    <>
-                      <div 
-                        className={`nav-link ${activeMenu === item.label ? 'active' : ''}`}
-                        onClick={() => toggleSubmenu(item.label)}
-                      >
-                        {item.label} <span className="dropdown-arrow">▼</span>
-                      </div>
-                      {activeMenu === item.label && (
-                        <ul className="submenu">
-                          {item.submenu.map((subItem) => {
-                            // For protected subitems, only show when signed in
-                            if (subItem.protected) {
-                              return (
-                                <SignedIn key={subItem.label}>
-                                  <li className="submenu-item">
-                                    <Link to={subItem.path} className="submenu-link">
-                                      {subItem.label}
-                                    </Link>
-                                  </li>
-                                </SignedIn>
-                              );
-                            } else {
-                              return (
-                                <li key={subItem.label} className="submenu-item">
-                                  <Link to={subItem.path} className="submenu-link">
-                                    {subItem.label}
-                                  </Link>
-                                </li>
-                              );
-                            }
-                          })}
-                        </ul>
-                      )}
-                    </>
-                  ) : (
+                <SignedOut key={item.label}>
+                  <li className="nav-item">
                     <Link to={item.path || '#'} className="nav-link">
                       {item.label}
                     </Link>
-                  )}
+                  </li>
+                </SignedOut>
+              );
+            } else {
+              // Non-protected, always visible (Home, Contact)
+              return (
+                <li key={item.label} className="nav-item">
+                  <Link to={item.path || '#'} className="nav-link">
+                    {item.label}
+                  </Link>
                 </li>
               );
             }

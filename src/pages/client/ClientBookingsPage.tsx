@@ -1,0 +1,197 @@
+import React, { useState } from 'react';
+import MediaCardHeader from '@/components/ui/media-card-header';
+import DataTable from '@/components/ui/data-table';
+import { Button } from '@/components/ui/button';
+import Footer from '@/components/layout/Footer';
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger
+} from '@/components/ui/drawer';
+
+const ClientBookingsPage = () => {
+    const bookings = useQuery(api.bookings.listMyBookings) || [];
+
+    const StatusBadge = ({ status }: { status: string }) => {
+        const styles: Record<string, string> = {
+            confirmed: 'bg-green-100 text-green-800',
+            pending: 'bg-yellow-100 text-yellow-800',
+            cancelled: 'bg-red-100 text-red-800',
+        };
+        const style = styles[status] || 'bg-gray-100 text-gray-800';
+
+        return (
+            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${style}`}>
+                {status}
+            </span>
+        );
+    };
+
+    const columns = [
+        {
+            key: 'bookingId',
+            header: 'Booking ID',
+            sortable: true,
+            render: (value: string, row: any) => (
+                <Drawer direction="right">
+                    <DrawerTrigger asChild>
+                        <Button variant="link" className="p-0 h-auto font-medium text-blue-600 hover:underline">
+                            {value}
+                        </Button>
+                    </DrawerTrigger>
+                    <DrawerContent className="max-w-md ml-auto h-full rounded-none border-l">
+                        <div className="h-full overflow-y-auto">
+                            <DrawerHeader>
+                                <DrawerTitle>Booking {row.bookingId}</DrawerTitle>
+                                <DrawerDescription>
+                                    Quote {row.quoteId} · {row.status}
+                                </DrawerDescription>
+                            </DrawerHeader>
+
+                            <div className="p-4 space-y-6">
+                                <section className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Booking Details</h3>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Status</span>
+                                            {row.status}
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Quote ID</span>
+                                            {row.quoteId}
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Carrier</span>
+                                            {row.carrierQuoteId || '-'}
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Created</span>
+                                            {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Customer</h3>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Name</span>
+                                            {row.customerDetails?.name || '-'}
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Company</span>
+                                            {row.customerDetails?.company || '-'}
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Email</span>
+                                            {row.customerDetails?.email || '-'}
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-500 text-xs">Phone</span>
+                                            {row.customerDetails?.phone || '-'}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Pickup</h3>
+                                    <div className="text-sm">
+                                        <div>{row.pickupDetails?.address || '-'}</div>
+                                        <div className="text-gray-500 text-xs">{row.pickupDetails?.date} · {row.pickupDetails?.timeWindow}</div>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Delivery</h3>
+                                    <div className="text-sm">
+                                        <div>{row.deliveryDetails?.address || '-'}</div>
+                                        <div className="text-gray-500 text-xs">{row.deliveryDetails?.date} · {row.deliveryDetails?.timeWindow}</div>
+                                    </div>
+                                </section>
+
+                                {row.specialInstructions && (
+                                    <section className="space-y-3">
+                                        <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Special Instructions</h3>
+                                        <div className="text-sm text-gray-700">{row.specialInstructions}</div>
+                                    </section>
+                                )}
+                            </div>
+
+                            <DrawerFooter className="border-t">
+                                <DrawerClose asChild>
+                                    <Button variant="outline">Close</Button>
+                                </DrawerClose>
+                            </DrawerFooter>
+                        </div>
+                    </DrawerContent>
+                </Drawer>
+            )
+        },
+        { key: 'quoteId', header: 'Quote ID', sortable: true },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            render: (value: string) => <StatusBadge status={value} />
+        },
+        {
+            key: 'pickupDetails',
+            header: 'Pickup',
+            render: (_: any, row: any) => row.pickupDetails?.address || '-'
+        },
+        {
+            key: 'deliveryDetails',
+            header: 'Delivery',
+            render: (_: any, row: any) => row.deliveryDetails?.address || '-'
+        },
+        {
+            key: 'createdAt',
+            header: 'Created',
+            sortable: true,
+            render: (value: number) => value ? new Date(value).toLocaleDateString() : '-'
+        }
+    ];
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <MediaCardHeader
+                title="My Bookings"
+                subtitle="Confirmed Shipments"
+                description="View and manage your confirmed bookings."
+                backgroundImage="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
+                overlayOpacity={0.6}
+                overlayOpacity={0.6}
+                className="mb-6"
+            />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900">
+                        All Bookings
+                        <span className="text-sm text-gray-500 ml-2">
+                            ({bookings.length})
+                        </span>
+                    </h2>
+                </div>
+
+                <DataTable
+                    data={bookings}
+                    columns={columns as any}
+                    searchPlaceholder="Search bookings..."
+                    rowsPerPage={10}
+                />
+            </div>
+
+            <Footer />
+        </div>
+    );
+};
+
+export default ClientBookingsPage;

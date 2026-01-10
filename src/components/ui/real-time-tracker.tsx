@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import ShipmentMap from "../tracking/ShipmentMap";
 
 interface TrackingEvent {
   id: string;
@@ -26,87 +29,64 @@ interface RealTimeTrackerProps {
 }
 
 const RealTimeTracker: React.FC<RealTimeTrackerProps> = ({ shipmentId, className }) => {
-  const [tracking, setTracking] = useState<ShipmentTracking | null>(null);
   const [isLive, setIsLive] = useState(true);
 
-  // Mock real-time data - in production this would connect to WebSocket or polling API
-  useEffect(() => {
-    const mockTracking: ShipmentTracking = {
+  // Live shipment data from Convex
+  const shipmentData = useQuery(api.shipments.getShipment, { shipmentId });
+
+  // Transform live data or use fallback
+  const tracking: ShipmentTracking | null = useMemo(() => {
+    if (shipmentData?.shipment) {
+      const ship = shipmentData.shipment;
+      const events = (shipmentData.events || []).map((e: any, idx: number) => ({
+        id: e._id || String(idx),
+        timestamp: e.timestamp || new Date(e.createdAt).toLocaleString(),
+        location: e.location || 'Unknown',
+        status: e.status || 'Update',
+        description: e.description || '',
+        type: 'transit' as const,
+      }));
+
+      // Calculate progress based on status
+      let progress = 50;
+      if (ship.status === 'delivered') progress = 100;
+      else if (ship.status === 'in_transit') progress = 65;
+      else if (ship.status === 'pending') progress = 10;
+
+      return {
+        shipmentId: ship.shipmentId,
+        currentLocation: `${ship.currentLocation?.city || 'Unknown'}, ${ship.currentLocation?.country || ''}`,
+        nextLocation: ship.shipmentDetails?.destination || 'Destination',
+        estimatedArrival: ship.estimatedDelivery || new Date(Date.now() + 86400000).toISOString(),
+        progress,
+        status: (ship.status?.replace('_', '-') as any) || 'in-transit',
+        events: events.length > 0 ? events : [{
+          id: '1',
+          timestamp: new Date().toLocaleString(),
+          location: ship.currentLocation?.city || 'Origin',
+          status: 'Shipment Created',
+          description: 'Tracking started',
+          type: 'departure' as const,
+        }],
+      };
+    }
+
+    // Fallback mock data
+    return {
       shipmentId,
       currentLocation: 'Port of Hamburg, DE',
       nextLocation: 'Port of Felixstowe, UK',
       estimatedArrival: '2024-08-05 14:30',
       progress: 65,
-      status: 'in-transit',
+      status: 'in-transit' as const,
       events: [
-        {
-          id: '1',
-          timestamp: '2024-08-01 09:15',
-          location: 'London, UK',
-          status: 'Departed',
-          description: 'Container loaded and departed from origin',
-          type: 'departure'
-        },
-        {
-          id: '2',
-          timestamp: '2024-08-01 18:45',
-          location: 'Dover, UK',
-          status: 'In Transit',
-          description: 'Crossed English Channel',
-          type: 'transit'
-        },
-        {
-          id: '3',
-          timestamp: '2024-08-02 08:30',
-          location: 'Calais, FR',
-          status: 'Customs Cleared',
-          description: 'EU customs clearance completed',
-          type: 'customs'
-        },
-        {
-          id: '4',
-          timestamp: '2024-08-02 16:20',
-          location: 'Hamburg, DE',
-          status: 'Arrived',
-          description: 'Arrived at destination port',
-          type: 'arrival'
-        }
-      ]
+        { id: '1', timestamp: '2024-08-01 09:15', location: 'London, UK', status: 'Departed', description: 'Container loaded and departed from origin', type: 'departure' as const },
+        { id: '2', timestamp: '2024-08-01 18:45', location: 'Dover, UK', status: 'In Transit', description: 'Crossed English Channel', type: 'transit' as const },
+        { id: '3', timestamp: '2024-08-02 08:30', location: 'Calais, FR', status: 'Customs Cleared', description: 'EU customs clearance completed', type: 'customs' as const },
+        { id: '4', timestamp: '2024-08-02 16:20', location: 'Hamburg, DE', status: 'Arrived', description: 'Arrived at destination port', type: 'arrival' as const },
+      ],
     };
-
-    setTracking(mockTracking);
-
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setTracking(prev => {
-        if (!prev) return prev;
-        
-        // Simulate progress updates
-        const newProgress = Math.min(prev.progress + Math.random() * 2, 100);
-        
-        return {
-          ...prev,
-          progress: newProgress,
-          // Occasionally add new events
-          ...(Math.random() > 0.95 && {
-            events: [
-              ...prev.events,
-              {
-                id: Date.now().toString(),
-                timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-                location: prev.currentLocation,
-                status: 'Position Update',
-                description: 'GPS location updated',
-                type: 'transit' as const
-              }
-            ]
-          })
-        };
-      });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [shipmentId]);
+  }, [shipmentData, shipmentId]);
 
   if (!tracking) {
     return (
@@ -177,7 +157,7 @@ const RealTimeTracker: React.FC<RealTimeTrackerProps> = ({ shipmentId, className
             <span>{tracking.nextLocation}</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-primary h-2 rounded-full transition-all duration-1000"
               style={{ width: `${tracking.progress}%` }}
             />
@@ -192,9 +172,8 @@ const RealTimeTracker: React.FC<RealTimeTrackerProps> = ({ shipmentId, className
           {tracking.events.map((event, index) => (
             <div key={event.id} className="flex items-start space-x-3">
               <div className="flex-shrink-0">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                  index === 0 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${index === 0 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
+                  }`}>
                   {getEventIcon(event.type)}
                 </div>
               </div>
@@ -211,15 +190,25 @@ const RealTimeTracker: React.FC<RealTimeTrackerProps> = ({ shipmentId, className
         </div>
       </div>
 
-      {/* Map Placeholder */}
+      {/* Map Section */}
       <div className="p-6 border-t border-gray-200">
-        <div className="bg-gray-100 rounded-lg h-48 flex items-center justify-center">
-          <div className="text-center text-gray-500">
-            <div className="text-4xl mb-2">🗺️</div>
-            <p className="text-sm">Interactive Route Map</p>
-            <p className="text-xs">Real-time vessel/vehicle tracking</p>
-          </div>
-        </div>
+        <ShipmentMap
+          shipments={shipmentData?.shipment ? [shipmentData.shipment] : [
+            // Mock shipment with coordinates for fallback
+            {
+              shipmentId: shipmentId,
+              status: tracking?.status || 'in-transit',
+              currentLocation: {
+                city: 'Hamburg',
+                country: 'Germany',
+                coordinates: { lat: 53.5511, lng: 9.9937 } // Hamburg coordinates
+              }
+            }
+          ]}
+          focusedId={shipmentId}
+          height={200}
+          className="rounded-lg overflow-hidden"
+        />
       </div>
     </div>
   );

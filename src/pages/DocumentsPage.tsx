@@ -1,0 +1,452 @@
+import React, { useState, useMemo } from 'react';
+import MediaCardHeader from '@/components/ui/media-card-header';
+import DataTable from '@/components/ui/data-table';
+import { Button } from '@/components/ui/button';
+import { createCSVUrl } from '@/lib/export';
+import { simulateDocuSignUpdate } from '@/lib/docusign';
+import Footer from '@/components/layout/Footer';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger
+} from '@/components/ui/drawer';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription
+} from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { FileText, FileBadge, FileWarning, Upload, Eye, Send, RefreshCw, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
+
+const DocumentsPage = () => {
+    const [activeTab, setActiveTab] = useState('documents');
+    const [docTypeFilter, setDocTypeFilter] = useState('all');
+
+    // Live documents from Convex
+    const liveDocuments = useQuery(api.documents.listMyDocuments, {
+        type: docTypeFilter === 'all' ? undefined : docTypeFilter
+    });
+
+    const tableData = useMemo(() => {
+        return (liveDocuments || []).map((doc: any) => ({
+            ...doc,
+            documentNumber: doc.documentData?.documentNumber || '-',
+            issueDate: doc.documentData?.issueDate || '-',
+        }));
+    }, [liveDocuments]);
+
+    // State for Create Drawer
+    const [createOpen, setCreateOpen] = useState(false);
+
+    // State for Detail Sheet
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [selectedDoc, setSelectedDoc] = useState<any>(null);
+
+    // State for Send Signature Drawer
+    const [sendOpen, setSendOpen] = useState(false);
+    const [sendDoc, setSendDoc] = useState<any>(null);
+    const [recipientName, setRecipientName] = useState('');
+    const [recipientEmail, setRecipientEmail] = useState('');
+    const [sending, setSending] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Mutations
+    const createDocument = useMutation(api.documents.createDocument);
+    const setDocusignEnvelope = useMutation(api.documents.setDocusignEnvelope);
+
+    // --- Actions ---
+
+    const handleOpenDetail = (doc: any) => {
+        setSelectedDoc(doc);
+        setDetailOpen(true);
+    };
+
+    const handleOpenSend = (doc: any) => {
+        setSendDoc(doc);
+        setSendOpen(true);
+        setDetailOpen(false);
+    };
+
+    const handleSendForSignature = async () => {
+        if (!sendDoc || !recipientEmail) return;
+        setSending(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network
+
+            const envelopeId = `ENV-${Date.now()}`;
+            await setDocusignEnvelope({
+                documentId: sendDoc._id,
+                envelopeId,
+                status: 'sent',
+                recipients: [{
+                    name: recipientName,
+                    email: recipientEmail,
+                    role: 'Signer',
+                    status: 'sent'
+                }]
+            });
+
+            toast.success(`Envelope sent! ID: ${envelopeId}`);
+            setSendOpen(false);
+            setRecipientName('');
+            setRecipientEmail('');
+        } catch (e: any) {
+            toast.error(`Failed to send: ${e.message}`);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const handleRefreshStatus = async (doc: any) => {
+        if (!doc.docusign?.envelopeId) return;
+        setRefreshing(true);
+        try {
+            const newStatus = await simulateDocuSignUpdate(doc._id, doc.docusign.status);
+
+            // Update local state via mutation (live query will auto-update UI)
+            await setDocusignEnvelope({
+                documentId: doc._id,
+                envelopeId: doc.docusign.envelopeId,
+                status: newStatus,
+                recipients: doc.docusign.recipients
+            });
+
+            toast.success(`Status updated: ${newStatus.toUpperCase()}`);
+        } catch (e: any) {
+            toast.error("Failed to refresh status");
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    // --- Columns ---
+
+    const documentColumns = [
+        {
+            key: 'documentNumber',
+            header: 'Document #',
+            sortable: true,
+            render: (val: string, row: any) => (
+                <span className="font-medium text-primary cursor-pointer hover:underline" onClick={() => handleOpenDetail(row)}>
+                    {val || row._id.substring(0, 8)}
+                </span>
+            )
+        },
+        {
+            key: 'type',
+            header: 'Type',
+            sortable: true,
+            render: (val: string) => val ? val.replace(/_/g, ' ').toUpperCase() : '-'
+        },
+        {
+            key: 'issueDate',
+            header: 'Date',
+            sortable: true,
+            render: (val: string) => val !== '-' ? new Date(val).toLocaleDateString() : '-'
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            render: (value: string, row: any) => {
+                const dsStatus = row.docusign?.status;
+                const display = dsStatus ? `${value} (${dsStatus})` : value;
+
+                let color = 'bg-gray-100 text-gray-800';
+                if (value === 'approved' || dsStatus === 'signed' || dsStatus === 'completed') color = 'bg-green-100 text-green-800';
+                else if (value === 'pending' || dsStatus === 'sent') color = 'bg-blue-100 text-blue-800';
+
+                return <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${color}`}>{display}</span>;
+            }
+        },
+        {
+            key: '_id',
+            header: 'Actions',
+            render: (_: string, row: any) => (
+                <div className="flex space-x-2">
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenDetail(row)} title="View Details">
+                        <Eye className="h-4 w-4" />
+                    </Button>
+                    {row.docusign?.envelopeId ? (
+                        <Button variant="ghost" size="icon" onClick={() => handleRefreshStatus(row)} disabled={refreshing} title="Refresh Status">
+                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                        </Button>
+                    ) : (
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenSend(row)} title="Send for Signature">
+                            <Send className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+            )
+        },
+    ];
+
+    // Export ref
+    const downloadRef = React.useRef<HTMLAnchorElement>(null);
+
+    // --- Render ---
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <MediaCardHeader
+                title="Documents"
+                subtitle="Management Center"
+                description="Create and manage Bills of Lading, AWBs, and Invoices."
+                backgroundImage="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
+                overlayOpacity={0.6}
+                className="mb-6"
+            />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+                {/* Stats Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div className="flex items-center">
+                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">📄</div>
+                            <div className="ml-4">
+                                <p className="text-sm font-medium text-gray-500">Total Documents</p>
+                                <p className="text-2xl font-semibold text-blue-600">{liveDocuments?.length || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Filters & Actions */}
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
+                        <select
+                            value={docTypeFilter}
+                            onChange={(e) => setDocTypeFilter(e.target.value)}
+                            className="border rounded-md px-3 py-1.5 text-sm bg-white"
+                        >
+                            <option value="all">All Types</option>
+                            <option value="bill_of_lading">Bill of Lading</option>
+                            <option value="commercial_invoice">Commercial Invoice</option>
+                            <option value="air_waybill">Air Waybill</option>
+                        </select>
+                    </div>
+                    <div className="flex space-x-3">
+                        {/* Flatten export logic */}
+                        <Button variant="outline" onClick={() => {
+                            if (tableData.length === 0) {
+                                toast.error("No documents to export");
+                                return;
+                            }
+                            const exportData = tableData.map(d => ({
+                                DocumentNumber: d.documentNumber,
+                                Type: d.type,
+                                Date: d.issueDate,
+                                Status: d.status,
+                                SignerStatus: d.docusign?.status || 'N/A'
+                            }));
+
+                            const url = createCSVUrl(exportData);
+                            if (url && downloadRef.current) {
+                                downloadRef.current.href = url;
+                                downloadRef.current.download = `Documents_${new Date().toISOString().split('T')[0]}.csv`;
+                                downloadRef.current.click();
+                                URL.revokeObjectURL(url);
+                                toast.success("Exporting documents...");
+                            }
+                        }}>
+                            <Upload className="h-4 w-4 mr-2 rotate-180" />
+                            Export CSV
+                        </Button>
+                        <a ref={downloadRef} style={{ display: 'none' }} />
+
+                        <Button onClick={() => setCreateOpen(true)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Create Document
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Data Table */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <DataTable
+                        data={tableData}
+                        columns={documentColumns}
+                        searchPlaceholder="Search documents..."
+                        rowsPerPage={10}
+                        className="border-0 shadow-none"
+                    />
+                </div>
+
+            </div>
+            <Footer />
+
+            {/* --- DRAWERS & SHEETS --- */}
+
+            <CreateDocumentDrawer open={createOpen} onOpenChange={setCreateOpen} createDocument={createDocument} />
+
+            <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+                <SheetContent className="sm:max-w-md w-full overflow-y-auto">
+                    <SheetHeader>
+                        <SheetTitle>Document Details</SheetTitle>
+                        <SheetDescription>{selectedDoc?.documentData?.documentNumber}</SheetDescription>
+                    </SheetHeader>
+                    {selectedDoc && (
+                        <div className="mt-6 space-y-6">
+                            <div className="p-4 bg-gray-50 rounded-lg border space-y-2">
+                                {/* Detail content similar to CompliancePage but maybe cleaner */}
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <span className="text-gray-500">Type:</span>
+                                    <span className="font-medium capitalize">{selectedDoc.type?.replace(/_/g, ' ')}</span>
+                                    <span className="text-gray-500">Status:</span>
+                                    <span className="font-medium capitalize">{selectedDoc.status}</span>
+                                </div>
+                                <div className="pt-2">
+                                    {selectedDoc.docusign?.envelopeId ? (
+                                        <Button size="sm" variant="outline" className="w-full" onClick={() => handleRefreshStatus(selectedDoc)} disabled={refreshing}>
+                                            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} /> Refresh Status
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" className="w-full" onClick={() => handleOpenSend(selectedDoc)}>
+                                            <Send className="h-4 w-4 mr-2" /> Send for Signature
+                                        </Button>
+                                    )}
+                                </div>
+                                {selectedDoc.docusign && (
+                                    <div className="text-xs bg-blue-50 p-2 rounded text-blue-700 mt-2">
+                                        Envelope: {selectedDoc.docusign.envelopeId}<br />
+                                        Status: {selectedDoc.docusign.status}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </SheetContent>
+            </Sheet>
+
+            <Drawer open={sendOpen} onOpenChange={setSendOpen}>
+                <DrawerContent className="max-w-md mx-auto">
+                    <DrawerHeader>
+                        <DrawerTitle>Send for E-Signature</DrawerTitle>
+                        <DrawerDescription>Simulate sending via DocuSign</DrawerDescription>
+                    </DrawerHeader>
+                    <div className="p-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label>Recipient Name</Label>
+                            <Input value={recipientName} onChange={e => setRecipientName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Recipient Email</Label>
+                            <Input value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)} />
+                        </div>
+                    </div>
+                    <DrawerFooter>
+                        <Button onClick={handleSendForSignature} disabled={sending}>
+                            {sending ? 'Sending...' : 'Send Envelope'}
+                        </Button>
+                        <DrawerClose asChild><Button variant="outline">Cancel</Button></DrawerClose>
+                    </DrawerFooter>
+                </DrawerContent>
+            </Drawer>
+
+        </div>
+    );
+};
+
+// Reuse CreateDocumentDrawer (copy paste full implementation or import if extracted, I'll allow copy here for safety)
+function CreateDocumentDrawer({ open, onOpenChange, createDocument }: any) {
+    const [formData, setFormData] = useState({
+        type: 'bill_of_lading',
+        documentNumber: `BL-${Date.now().toString().slice(-6)}`,
+        issueDate: new Date().toISOString().split('T')[0],
+        shipperName: '', shipperAddress: '',
+        consigneeName: '', consigneeAddress: '',
+        description: '', weight: '', dimensions: '', value: '',
+        origin: '', destination: ''
+    });
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async () => {
+        setLoading(true);
+        try {
+            await createDocument({
+                type: formData.type,
+                documentData: {
+                    documentNumber: formData.documentNumber,
+                    issueDate: formData.issueDate,
+                    parties: {
+                        shipper: { name: formData.shipperName, address: formData.shipperAddress, contact: '' },
+                        consignee: { name: formData.consigneeName, address: formData.consigneeAddress, contact: '' },
+                        carrier: undefined,
+                    },
+                    cargoDetails: {
+                        description: formData.description,
+                        weight: formData.weight,
+                        dimensions: formData.dimensions,
+                        value: formData.value,
+                    },
+                    routeDetails: {
+                        origin: formData.origin,
+                        destination: formData.destination,
+                    },
+                    terms: 'Standard Terms'
+                },
+                status: 'draft'
+            });
+            toast.success("Document created successfully");
+            onOpenChange(false);
+        } catch (e: any) {
+            toast.error(`Error: ${e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleChange = (field: string, value: string) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    return (
+        <Drawer open={open} onOpenChange={onOpenChange}>
+            <DrawerContent className="max-w-4xl mx-auto h-[85vh]">
+                <DrawerHeader>
+                    <DrawerTitle>Create New Document</DrawerTitle>
+                </DrawerHeader>
+                <div className="px-6 py-4 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <Label>Type</Label>
+                            <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                                value={formData.type} onChange={e => handleChange('type', e.target.value)}>
+                                <option value="bill_of_lading">Bill of Lading</option>
+                                <option value="commercial_invoice">Commercial Invoice</option>
+                                <option value="air_waybill">Air Waybill</option>
+                            </select>
+                            <Label>Number</Label><Input value={formData.documentNumber} onChange={e => handleChange('documentNumber', e.target.value)} />
+                            <Label>Shipper</Label><Input value={formData.shipperName} onChange={e => handleChange('shipperName', e.target.value)} />
+                        </div>
+                        <div className="space-y-4">
+                            <Label>Consignee</Label><Input value={formData.consigneeName} onChange={e => handleChange('consigneeName', e.target.value)} />
+                            <Label>Description</Label><Input value={formData.description} onChange={e => handleChange('description', e.target.value)} />
+                            <Label>Origin</Label><Input value={formData.origin} onChange={e => handleChange('origin', e.target.value)} />
+                            <Label>Destination</Label><Input value={formData.destination} onChange={e => handleChange('destination', e.target.value)} />
+                        </div>
+                    </div>
+                </div>
+                <DrawerFooter>
+                    <Button onClick={handleSubmit} disabled={loading}>Create</Button>
+                    <DrawerClose asChild><Button variant="outline">Cancel</Button></DrawerClose>
+                </DrawerFooter>
+            </DrawerContent>
+        </Drawer>
+    );
+}
+
+export default DocumentsPage;

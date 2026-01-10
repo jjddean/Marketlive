@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import Footer from '@/components/layout/Footer';
 import AdvancedSearch from '@/components/ui/advanced-search';
 import RealTimeTracker from '@/components/ui/real-time-tracker';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 const ShipmentsPage = () => {
   const [activeTab, setActiveTab] = useState('active');
 
-  const shipments = {
+  // Hardcoded fallback data
+  const HARDCODED_SHIPMENTS = {
     active: [
       {
         id: 'SH-2024-001',
@@ -76,7 +79,64 @@ const ShipmentsPage = () => {
     ]
   };
 
-  const [filteredShipments, setFilteredShipments] = useState(shipments);
+  const liveData = useQuery(api.shipments.listShipments, { onlyMine: true });
+
+  // State for filtering - initialized with fallback, updated via effect
+  const [filteredShipments, setFilteredShipments] = useState(HARDCODED_SHIPMENTS);
+
+  // Sync live data to state when it arrives
+  useEffect(() => {
+    if (liveData && liveData.length > 0) {
+      const formatted = {
+        active: liveData.filter((s: any) => s.status !== 'Delivered').map((s: any) => ({
+          id: s.shipmentId,
+          origin: s.shipmentDetails?.origin || '',
+          destination: s.shipmentDetails?.destination || '',
+          status: s.status,
+          eta: s.estimatedDelivery,
+          carrier: s.carrier,
+          value: s.shipmentDetails?.value || '',
+          container: s.trackingNumber
+        })),
+        completed: liveData.filter((s: any) => s.status === 'Delivered').map((s: any) => ({
+          id: s.shipmentId,
+          origin: s.shipmentDetails?.origin || '',
+          destination: s.shipmentDetails?.destination || '',
+          status: s.status,
+          eta: s.estimatedDelivery,
+          carrier: s.carrier,
+          value: s.shipmentDetails?.value || '',
+          container: s.trackingNumber
+        }))
+      };
+      setFilteredShipments(formatted);
+    }
+  }, [liveData]);
+
+  // Helper to get current source of truth for filtering logic
+  const currentShipments = (liveData && liveData.length > 0) ? {
+    active: liveData.filter((s: any) => s.status !== 'Delivered').map((s: any) => ({
+      id: s.shipmentId,
+      origin: s.shipmentDetails?.origin || '',
+      destination: s.shipmentDetails?.destination || '',
+      status: s.status,
+      eta: s.estimatedDelivery,
+      carrier: s.carrier,
+      value: s.shipmentDetails?.value || '',
+      container: s.trackingNumber
+    })),
+    completed: liveData.filter((s: any) => s.status === 'Delivered').map((s: any) => ({
+      id: s.shipmentId,
+      origin: s.shipmentDetails?.origin || '',
+      destination: s.shipmentDetails?.destination || '',
+      status: s.status,
+      eta: s.estimatedDelivery,
+      carrier: s.carrier,
+      value: s.shipmentDetails?.value || '',
+      container: s.trackingNumber
+    }))
+  } : HARDCODED_SHIPMENTS;
+
 
   // Search filters configuration
   const searchFilters = [
@@ -118,7 +178,7 @@ const ShipmentsPage = () => {
   ];
 
   const handleSearch = (searchTerm: string, filters: Record<string, any>) => {
-    let filtered = { ...shipments };
+    let filtered = { ...currentShipments };
 
     // Apply search term
     if (searchTerm) {
@@ -160,46 +220,45 @@ const ShipmentsPage = () => {
   };
 
   const handleClearSearch = () => {
-    setFilteredShipments(shipments);
+    setFilteredShipments(currentShipments);
   };
 
   const shipmentColumns = [
-    { key: 'id' as keyof typeof shipments.active[0], header: 'Shipment ID', sortable: true },
+    { key: 'id' as keyof typeof filteredShipments.active[0], header: 'Shipment ID', sortable: true },
     {
-      key: 'origin' as keyof typeof shipments.active[0],
+      key: 'origin' as keyof typeof filteredShipments.active[0],
       header: 'Route',
       sortable: true,
-      render: (value: string, row: typeof shipments.active[0]) => (
+      render: (value: string, row: typeof filteredShipments.active[0]) => (
         <span className="text-sm">
           <div className="font-medium">{row.origin}</div>
           <div className="text-gray-500">→ {row.destination}</div>
         </span>
       )
     },
-    { key: 'carrier' as keyof typeof shipments.active[0], header: 'Carrier', sortable: true },
+    { key: 'carrier' as keyof typeof filteredShipments.active[0], header: 'Carrier', sortable: true },
     {
-      key: 'status' as keyof typeof shipments.active[0],
+      key: 'status' as keyof typeof filteredShipments.active[0],
       header: 'Status',
       sortable: true,
       render: (value: string) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-          value === 'Delivered' ? 'bg-green-100 text-green-800' :
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${value === 'Delivered' ? 'bg-green-100 text-green-800' :
           value === 'In Transit' ? 'bg-blue-100 text-blue-800' :
-          value === 'Customs Clearance' ? 'bg-yellow-100 text-yellow-800' :
-          value === 'Loading' ? 'bg-purple-100 text-purple-800' :
-          value === 'Booking Confirmed' ? 'bg-gray-100 text-gray-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
+            value === 'Customs Clearance' ? 'bg-yellow-100 text-yellow-800' :
+              value === 'Loading' ? 'bg-purple-100 text-purple-800' :
+                value === 'Booking Confirmed' ? 'bg-gray-100 text-gray-800' :
+                  'bg-gray-100 text-gray-800'
+          }`}>
           {value}
         </span>
       )
     },
-    { key: 'eta' as keyof typeof shipments.active[0], header: 'ETA', sortable: true },
-    { key: 'value' as keyof typeof shipments.active[0], header: 'Value', sortable: true },
+    { key: 'eta' as keyof typeof filteredShipments.active[0], header: 'ETA', sortable: true },
+    { key: 'value' as keyof typeof filteredShipments.active[0], header: 'Value', sortable: true },
     {
-      key: 'container' as keyof typeof shipments.active[0],
+      key: 'container' as keyof typeof filteredShipments.active[0],
       header: 'Actions',
-      render: (value: string, row: typeof shipments.active[0]) => (
+      render: (value: string, row: typeof filteredShipments.active[0]) => (
         <div className="flex space-x-2">
           <Button variant="outline" size="sm">View</Button>
           {activeTab === 'active' && (
@@ -229,23 +288,21 @@ const ShipmentsPage = () => {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('active')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'active'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'active'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
-                Active Shipments ({shipments.active.length})
+                Active Shipments ({filteredShipments.active.length})
               </button>
               <button
                 onClick={() => setActiveTab('completed')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'completed'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'completed'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
-                Completed Shipments ({shipments.completed.length})
+                Completed Shipments ({filteredShipments.completed.length})
               </button>
             </nav>
           </div>
