@@ -167,7 +167,6 @@ const ClientBookingsPage = () => {
                 description="View and manage your confirmed bookings."
                 backgroundImage="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
                 overlayOpacity={0.6}
-                overlayOpacity={0.6}
                 className="mb-6"
             />
 

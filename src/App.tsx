@@ -65,6 +65,7 @@ function Layout({ children }: LayoutProps) {
       console.log('PWA was installed');
       deferredPrompt = null;
     });
+    console.log("MARKET LIVE: Version 8080 - No Banner");
   }, []);
 
   return (

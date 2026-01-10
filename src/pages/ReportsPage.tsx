@@ -11,6 +11,7 @@ import { api } from "../../convex/_generated/api";
 
 const ReportsPage = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const downloadRef = React.useRef<HTMLAnchorElement>(null);
 
   // Live data from Convex for analytics
   const shipments = useQuery(api.shipments.listShipments, {}) || [];

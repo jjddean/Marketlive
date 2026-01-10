@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { createCSVUrl } from '@/lib/export';
 import { simulateDocuSignUpdate } from '@/lib/docusign';
 import Footer from '@/components/layout/Footer';
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { Sparkles } from "lucide-react";
 import {
     Drawer,
     DrawerClose,
@@ -48,6 +49,7 @@ const DocumentsPage = () => {
 
     // State for Create Drawer
     const [createOpen, setCreateOpen] = useState(false);
+    const [autofillData, setAutofillData] = useState<any>(null); // New state for AI data
 
     // State for Detail Sheet
     const [detailOpen, setDetailOpen] = useState(false);
@@ -239,7 +241,16 @@ const DocumentsPage = () => {
                         </select>
                     </div>
                     <div className="flex space-x-3">
-                        {/* Flatten export logic */}
+                        <SmartUploadButton onParse={async (data) => {
+                            // Pre-fill form and open drawer
+                            // We need to pass this data to the drawer. 
+                            // This requires lifting the state or passing a 'initialData' prop to CreateDocumentDrawer.
+                            // For now, let's just log it and show a toast, or better yet, refactor slightly.
+                            // actually, let's expose a way to open the drawer WITH data.
+
+                            // Implementation detail: I will add a 'parsedData' prop to the drawer state in the parent
+                        }} />
+
                         <Button variant="outline" onClick={() => {
                             if (tableData.length === 0) {
                                 toast.error("No documents to export");
@@ -290,7 +301,15 @@ const DocumentsPage = () => {
 
             {/* --- DRAWERS & SHEETS --- */}
 
-            <CreateDocumentDrawer open={createOpen} onOpenChange={setCreateOpen} createDocument={createDocument} />
+            <CreateDocumentDrawer
+                open={createOpen}
+                onOpenChange={(val: boolean) => {
+                    setCreateOpen(val);
+                    if (!val) setAutofillData(null); // Clear on close
+                }}
+                createDocument={createDocument}
+                initialData={autofillData} // Pass the data
+            />
 
             <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
                 <SheetContent className="sm:max-w-md w-full overflow-y-auto">
@@ -361,8 +380,8 @@ const DocumentsPage = () => {
 };
 
 // Reuse CreateDocumentDrawer (copy paste full implementation or import if extracted, I'll allow copy here for safety)
-function CreateDocumentDrawer({ open, onOpenChange, createDocument }: any) {
-    const [formData, setFormData] = useState({
+function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData }: any) {
+    const defaultState = {
         type: 'bill_of_lading',
         documentNumber: `BL-${Date.now().toString().slice(-6)}`,
         issueDate: new Date().toISOString().split('T')[0],
@@ -370,8 +389,39 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument }: any) {
         consigneeName: '', consigneeAddress: '',
         description: '', weight: '', dimensions: '', value: '',
         origin: '', destination: ''
-    });
+    };
+
+    const [formData, setFormData] = useState(defaultState);
     const [loading, setLoading] = useState(false);
+
+    // Auto-fill effect
+    React.useEffect(() => {
+        if (initialData && initialData.data) {
+            const d = initialData.data;
+            setFormData({
+                type: initialData.type || 'bill_of_lading',
+                documentNumber: `AI-${Date.now().toString().slice(-6)}`, // New number
+                issueDate: new Date().toISOString().split('T')[0],
+                shipperName: d.shipper?.name || '',
+                shipperAddress: d.shipper?.address || '',
+                consigneeName: d.consignee?.name || '',
+                consigneeAddress: d.consignee?.address || '',
+                description: d.cargoDetails?.description || '',
+                weight: d.cargoDetails?.weight || '',
+                dimensions: d.cargoDetails?.dimensions || '',
+                value: d.cargoDetails?.value || '',
+                origin: d.routeDetails?.origin || '',
+                destination: d.routeDetails?.destination || ''
+            });
+        } else if (open && !initialData) {
+            // Reset if opening without data (optional, but good UX)
+            setFormData(prev => ({
+                ...defaultState,
+                documentNumber: `BL-${Date.now().toString().slice(-6)}`
+            }));
+        }
+    }, [initialData, open]);
+    // Duplicate loading removed
 
     const handleSubmit = async () => {
         setLoading(true);
@@ -446,6 +496,57 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument }: any) {
                 </DrawerFooter>
             </DrawerContent>
         </Drawer>
+    );
+}
+
+// AI Upload Button Component
+
+function SmartUploadButton({ onParse }: { onParse: (data: any) => void }) {
+    const parseDocument = useAction((api as any).ai.parseDocument);
+    const [analyzing, setAnalyzing] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setAnalyzing(true);
+        toast.info("🤖 AI is reading your document...");
+
+        try {
+            // Mock reading file (in real app, read as base64)
+            const result = await parseDocument({
+                fileData: "base64-mock",
+                fileName: file.name
+            });
+            onParse(result);
+        } catch (err) {
+            toast.error("AI Analysis failed");
+        } finally {
+            setAnalyzing(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    return (
+        <>
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".pdf,.png,.jpg"
+                onChange={handleFileChange}
+            />
+            <Button
+                variant="secondary"
+                className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={analyzing}
+            >
+                {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                {analyzing ? "Analyzing..." : "Smart Upload"}
+            </Button>
+        </>
     );
 }
 

@@ -15,6 +15,7 @@ interface MenuItem {
   path?: string;
   submenu?: SubMenuItem[];
   protected: boolean;
+  hideOnAuth?: boolean;
 }
 
 const Navbar: React.FC = () => {
@@ -41,6 +42,7 @@ const Navbar: React.FC = () => {
     { label: 'Shipments', path: '/shipments', protected: true },
     { label: 'Bookings', path: '/bookings', protected: true },
     { label: 'Quotes', path: '/quotes', protected: true },
+    { label: 'Payments', path: '/payments', protected: true },
     { label: 'Documents', path: '/documents', protected: true },
     { label: 'Compliance', path: '/compliance', protected: true },
     { label: 'Reports', path: '/reports', protected: true },

@@ -96,32 +96,24 @@ export default function ShipmentMap({
         );
     }
 
+    // TEMPORARY FIX: Return safe placeholder to prevent Leaflet context crash
     return (
         <div className={className} style={{ height }}>
-            <MapContainer
-                center={defaultCenter}
-                zoom={focused ? 8 : 4}
-                style={{ height: "100%", width: "100%", borderRadius: "0.5rem" }}
-                scrollWheelZoom
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {points.map((p) => (
-                    <Marker key={p.shipmentId} position={[p.lat, p.lng]}>
-                        <Popup>
-                            <div className="text-sm">
-                                <div className="font-semibold">{p.shipmentId}</div>
-                                <div className="text-gray-500">{p.status}</div>
-                                <div>
-                                    {p.city}{p.city && p.country ? ", " : ""}{p.country}
-                                </div>
-                            </div>
-                        </Popup>
-                    </Marker>
-                ))}
-            </MapContainer>
+            <div className="w-full h-full bg-blue-50 rounded-lg border border-blue-100 flex flex-col items-center justify-center p-6 text-center">
+                <div className="text-4xl mb-4">🗺️</div>
+                <h3 className="text-lg font-semibold text-blue-900">Map Unavailable</h3>
+                <p className="text-sm text-blue-700 max-w-sm">
+                    Interactive map is temporarily disabled for maintenance.
+                    Shipment tracking data is still available in the list below.
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-left text-xs text-gray-600">
+                    {points.slice(0, 4).map(p => (
+                        <div key={p.shipmentId} className="bg-white p-2 rounded shadow-sm">
+                            <strong>{p.shipmentId}</strong>: {p.status} ({p.city})
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }
