@@ -10,9 +10,11 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 210 100% 20%; /* #003366 */
+    --primary: 210 100% 20%;
+    /* #003366 */
     --primary-foreground: 210 40% 98%;
-    --secondary: 174 72% 41%; /* #14b8a6 teal */
+    --secondary: 174 72% 41%;
+    /* #14b8a6 teal */
     --secondary-foreground: 174 72% 15%;
     --muted: 210 40% 98%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -53,16 +55,23 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground font-sans;
     margin: 0;
     min-height: 100vh;
     font-feature-settings: "rlig" 1, "calt" 1;
-    padding-top: 60px; /* Space for fixed navbar */
+    padding-top: 60px;
+    /* Space for fixed navbar */
   }
 
   /* MarketLive specific typography */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold text-primary-800;
   }
 
@@ -77,6 +86,7 @@
 }
 
 @layer components {
+
   /* Layout */
   #root {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
@@ -140,7 +150,8 @@
     @apply flex gap-8 mt-6 justify-center flex-wrap;
   }
 
-  .demo-public, .demo-protected {
+  .demo-public,
+  .demo-protected {
     @apply flex-1 min-w-[250px] border border-gray-200 rounded-lg p-6 bg-white shadow-sm;
   }
 

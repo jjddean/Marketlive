@@ -4,22 +4,19 @@ import { Button } from '@/components/ui/button';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import Modal from '@/components/ui/modal';
 import QuoteRequestForm from '@/components/forms/QuoteRequestForm';
+import QuoteResultsView from '@/components/shipping/QuoteResultsView';
 
 const HomePage = () => {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [submittedQuote, setSubmittedQuote] = useState<any>(null);
 
   const handleQuoteSubmit = (data: any) => {
-    console.log('Quote request submitted:', data);
+    setSubmittedQuote(data);
+  };
 
-    // Show success message with selected rate info
-    let message = 'Quote request submitted successfully! We\'ll get back to you within 24 hours.';
-
-    if (data.selectedRate) {
-      message = `Quote request submitted! Selected rate: ${data.selectedRate.carrier} ${data.selectedRate.service} - $${data.selectedRate.cost.toFixed(2)} (${data.selectedRate.transit_time}). We'll process your booking shortly.`;
-    }
-
+  const handleCloseModal = () => {
     setIsQuoteModalOpen(false);
-    alert(message);
+    setSubmittedQuote(null);
   };
 
   return (
@@ -114,14 +111,21 @@ const HomePage = () => {
       {/* Quote Request Modal */}
       <Modal
         isOpen={isQuoteModalOpen}
-        onClose={() => setIsQuoteModalOpen(false)}
-        title="Request Freight Quote"
+        onClose={handleCloseModal}
+        title={submittedQuote ? "" : "Request Freight Quote"}
         size="xl"
       >
-        <QuoteRequestForm
-          onSubmit={handleQuoteSubmit}
-          onCancel={() => setIsQuoteModalOpen(false)}
-        />
+        {submittedQuote ? (
+          <QuoteResultsView
+            quote={submittedQuote}
+            onBack={handleCloseModal}
+          />
+        ) : (
+          <QuoteRequestForm
+            onSubmit={handleQuoteSubmit}
+            onCancel={handleCloseModal}
+          />
+        )}
       </Modal>
     </div>
   );
