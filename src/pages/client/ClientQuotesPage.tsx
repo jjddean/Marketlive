@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,8 @@ import Footer from '@/components/layout/Footer';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import QuoteRequestForm from '@/components/forms/QuoteRequestForm';
+import LiveRateComparison from '@/components/shipping/LiveRateComparison';
+import { type RateRequest } from '@/services/carriers';
 import {
     Drawer,
     DrawerClose,
@@ -46,27 +48,208 @@ function getCityCoordinates(cityOrOrigin?: string): { lat: number; lng: number }
         'frankfurt': { lat: 50.1109, lng: 8.6821 },
         'hong kong': { lat: 22.3193, lng: 114.1694 },
     };
-    // Check if city matches any key
     for (const [key, coords] of Object.entries(cityCoords)) {
         if (city.includes(key)) return coords;
     }
-    // Default to London if no match
     return { lat: 51.5074, lng: -0.1278 };
 }
 
+const StatusBadge = ({ status }: { status: string }) => {
+    const styles = {
+        success: 'bg-green-100 text-green-800',
+        pending: 'bg-yellow-100 text-yellow-800',
+        default: 'bg-gray-100 text-gray-800'
+    };
+    const label = status === 'success' ? 'Ready' : status;
+    const style = styles[status as keyof typeof styles] || styles.default;
+
+    return (
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${style}`}>
+            {label}
+        </span>
+    );
+};
+
+// Carrier Selection and Booking Component
+const CarrierSelectButton = ({ quote, selectedCarrier }: { quote: any, selectedCarrier: any }) => {
+    const createBooking = useMutation(api.bookings.createBooking);
+    const upsertShipment = useMutation(api.shipments.upsertShipment);
+    const [loading, setLoading] = useState(false);
+
+    const handleBook = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLoading(true);
+        try {
+            const contact = quote.contactInfo || {
+                name: 'Guest User',
+                email: 'guest@example.com',
+                phone: 'N/A',
+                company: 'N/A'
+            };
+
+            const bookingRes = await createBooking({
+                quoteId: quote.quoteId,
+                carrierQuoteId: selectedCarrier.carrierId,
+                customerDetails: {
+                    name: contact.name || 'Guest',
+                    email: contact.email || 'guest@example.com',
+                    phone: contact.phone || 'N/A',
+                    company: contact.company || 'N/A',
+                },
+                pickupDetails: {
+                    address: quote.origin || 'Origin',
+                    date: new Date().toISOString(),
+                    timeWindow: '09:00-17:00',
+                    contactPerson: contact.name || 'Guest',
+                    contactPhone: contact.phone || 'N/A',
+                },
+                deliveryDetails: {
+                    address: quote.destination || 'Destination',
+                    date: new Date(Date.now() + 5 * 86400000).toISOString(),
+                    timeWindow: '09:00-17:00',
+                    contactPerson: contact.name || 'Guest',
+                    contactPhone: contact.phone || 'N/A',
+                },
+                specialInstructions: "Standard handling"
+            });
+
+            const shipmentId = bookingRes?.bookingId || `SHP-${Date.now()}`;
+            await upsertShipment({
+                shipmentId,
+                tracking: {
+                    status: 'pending',
+                    currentLocation: {
+                        city: quote.origin || 'London',
+                        state: '',
+                        country: 'UK',
+                        coordinates: getCityCoordinates(quote.origin),
+                    },
+                    estimatedDelivery: new Date(Date.now() + 5 * 86400000).toISOString(),
+                    carrier: selectedCarrier.carrierName || selectedCarrier.carrierId,
+                    trackingNumber: `TBA-${shipmentId}`,
+                    service: selectedCarrier.serviceType || quote.serviceType,
+                    shipmentDetails: {
+                        weight: quote.weight || '',
+                        dimensions: `${quote.dimensions?.length || ''}x${quote.dimensions?.width || ''}x${quote.dimensions?.height || ''}`,
+                        origin: quote.origin || '',
+                        destination: quote.destination || '',
+                        value: quote.value || '',
+                    },
+                    events: [
+                        {
+                            timestamp: new Date().toISOString(),
+                            status: 'Shipment created',
+                            location: quote.origin || 'Origin',
+                            description: `Booking confirmed with ${selectedCarrier.carrierName}`,
+                        },
+                    ],
+                },
+            });
+
+            toast.success(`Booking confirmed with ${selectedCarrier.carrierName}!`);
+            setTimeout(() => { window.location.href = '/bookings'; }, 1000);
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to create booking");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Button onClick={handleBook} disabled={loading} size="sm" className="h-8 px-3 text-xs">
+            {loading ? 'Booking...' : 'Book'}
+        </Button>
+    );
+};
+
+// Results View displayed after quote submission - Matches User's Step 5 Image
+const QuoteResultsView = ({ quote, onBack }: { quote: any, onBack: () => void }) => {
+    if (!quote) return <div className="p-8 text-center text-gray-500">Loading quote results...</div>;
+
+    const rateRequest: RateRequest = {
+        origin: {
+            street1: '123 Business St',
+            city: quote.origin?.split(', ')[0] || 'London',
+            state: '',
+            zip: 'SW1A 1AA',
+            country: 'GB',
+        },
+        destination: {
+            street1: '456 Commerce Ave',
+            city: quote.destination?.split(', ')[0] || 'Hamburg',
+            state: '',
+            zip: '20095',
+            country: quote.destination?.includes('DE') ? 'DE' :
+                quote.destination?.includes('US') ? 'US' :
+                    quote.destination?.includes('CN') ? 'CN' : 'DE',
+        },
+        parcel: {
+            length: parseFloat(quote.dimensions?.length) || 40,
+            width: parseFloat(quote.dimensions?.width) || 30,
+            height: parseFloat(quote.dimensions?.height) || 20,
+            distance_unit: 'cm',
+            weight: parseFloat(quote.weight) || 100,
+            mass_unit: 'kg',
+        },
+    };
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-slate-900">New Quote Request</h3>
+                <Button variant="ghost" onClick={onBack}>Cancel</Button>
+            </div>
+
+            <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Step 5 of 5</span>
+                    <span className="text-sm text-gray-500">100% Complete</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-primary h-2 rounded-full w-full"></div>
+                </div>
+            </div>
+
+            <LiveRateComparison
+                rateRequest={rateRequest}
+                className="shadow-xl border-gray-100 rounded-2xl"
+            />
+        </div>
+    );
+};
+
 const ClientQuotesPage = () => {
     const quotes = useQuery(api.quotes.listMyQuotes) || [];
-    const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    // View mode only controls "Create New" vs "List". Details are handled by Drawers in the list.
-    const [viewMode, setViewMode] = useState<'list' | 'create'>(
-        (location.state as any)?.mode === 'create' || new URLSearchParams(location.search).get('mode') === 'create'
-            ? 'create'
-            : 'list'
+    // Use URL params for persistence
+    const viewMode = (searchParams.get('v') as any) || 'list';
+    const activeQuoteId = searchParams.get('id');
+    const currentStep = parseInt(searchParams.get('s') || '1');
+
+    const [activeQuote, setActiveQuote] = useState<any>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Fetch active quote if ID is in URL but not in state
+    const fetchedActiveQuote = useQuery(api.quotes.getQuote,
+        activeQuoteId ? { quoteId: activeQuoteId } : "skip" as any
     );
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    useEffect(() => {
+        if (fetchedActiveQuote && !activeQuote) {
+            setActiveQuote(fetchedActiveQuote);
+        }
+    }, [fetchedActiveQuote, activeQuote]);
+
     const createQuote = useMutation(api.quotes.createInstantQuoteAndBooking);
+
+    const setMode = (mode: string, id?: string, step?: number) => {
+        const params: any = { v: mode };
+        if (id) params.id = id;
+        if (step) params.s = step.toString();
+        setSearchParams(params);
+    };
 
     const handleCreateQuote = async (formData: any) => {
         setIsSubmitting(true);
@@ -85,129 +268,25 @@ const ClientQuotesPage = () => {
                 contactInfo: formData.contactInfo
             };
 
-            await createQuote({ request: requestData });
-            toast.success("Quote created successfully");
-            setViewMode('list');
+            const result = await createQuote({ request: requestData });
+
+            setActiveQuote({
+                ...requestData,
+                quoteId: result.quoteId,
+                status: "success",
+                quotes: result.quotes || []
+            });
+
+            setMode('result', result.quoteId);
+            toast.success("Quote generated successfully!");
         } catch (error) {
             console.error('Error creating quote:', error);
-            alert('Failed to create quote. Please try again.');
+            toast.error("Failed to generate quote. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const StatusBadge = ({ status }: { status: string }) => {
-        const styles = {
-            success: 'bg-green-100 text-green-800',
-            pending: 'bg-yellow-100 text-yellow-800',
-            default: 'bg-gray-100 text-gray-800'
-        };
-        const label = status === 'success' ? 'Ready' : status;
-        const style = styles[status as keyof typeof styles] || styles.default;
-
-        return (
-            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${style}`}>
-                {label}
-            </span>
-        );
-    };
-
-    // Helper for booking button next to each carrier
-    const CarrierSelectButton = ({ quote, selectedCarrier }: { quote: any, selectedCarrier: any }) => {
-        const createBooking = useMutation(api.bookings.createBooking);
-        const upsertShipment = useMutation(api.shipments.upsertShipment);
-        const [loading, setLoading] = useState(false);
-
-        const handleBook = async (e: React.MouseEvent) => {
-            e.stopPropagation();
-            setLoading(true);
-            try {
-                const contact = quote.contactInfo || {
-                    name: 'Guest User',
-                    email: 'guest@example.com',
-                    phone: 'N/A',
-                    company: 'N/A'
-                };
-
-                // 1. Create Booking for SELECTED carrier
-                const bookingRes = await createBooking({
-                    quoteId: quote.quoteId,
-                    carrierQuoteId: selectedCarrier.carrierId,
-                    customerDetails: {
-                        name: contact.name || 'Guest',
-                        email: contact.email || 'guest@example.com',
-                        phone: contact.phone || 'N/A',
-                        company: contact.company || 'N/A',
-                    },
-                    pickupDetails: {
-                        address: quote.origin || 'Origin',
-                        date: new Date().toISOString(),
-                        timeWindow: '09:00-17:00',
-                        contactPerson: contact.name || 'Guest',
-                        contactPhone: contact.phone || 'N/A',
-                    },
-                    deliveryDetails: {
-                        address: quote.destination || 'Destination',
-                        date: new Date(Date.now() + 5 * 86400000).toISOString(),
-                        timeWindow: '09:00-17:00',
-                        contactPerson: contact.name || 'Guest',
-                        contactPhone: contact.phone || 'N/A',
-                    },
-                    specialInstructions: "Standard handling"
-                });
-
-                // 2. Upsert Shipment immediately
-                const shipmentId = bookingRes?.bookingId || `SHP-${Date.now()}`;
-                await upsertShipment({
-                    shipmentId,
-                    tracking: {
-                        status: 'pending',
-                        currentLocation: {
-                            city: quote.origin || 'London',
-                            state: '',
-                            country: 'UK',
-                            coordinates: getCityCoordinates(quote.origin),
-                        },
-                        estimatedDelivery: new Date(Date.now() + 5 * 86400000).toISOString(),
-                        carrier: selectedCarrier.carrierName || selectedCarrier.carrierId,
-                        trackingNumber: `TBA-${shipmentId}`,
-                        service: selectedCarrier.serviceType || quote.serviceType,
-                        shipmentDetails: {
-                            weight: quote.weight || '',
-                            dimensions: `${quote.dimensions?.length || ''}x${quote.dimensions?.width || ''}x${quote.dimensions?.height || ''}`,
-                            origin: quote.origin || '',
-                            destination: quote.destination || '',
-                            value: quote.value || '',
-                        },
-                        events: [
-                            {
-                                timestamp: new Date().toISOString(),
-                                status: 'Shipment created',
-                                location: quote.origin || 'Origin',
-                                description: `Booking confirmed with ${selectedCarrier.carrierName}`,
-                            },
-                        ],
-                    },
-                });
-
-                toast.success(`Booking confirmed with ${selectedCarrier.carrierName}!`);
-                setTimeout(() => { window.location.href = '/bookings'; }, 1000);
-            } catch (e) {
-                console.error(e);
-                toast.error("Failed to create booking");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        return (
-            <Button onClick={handleBook} disabled={loading} size="sm" className="h-8 px-3 text-xs">
-                {loading ? 'Booking...' : 'Book'}
-            </Button>
-        );
-    };
-
-    // Columns definition including the Drawer
     const columns = [
         {
             key: 'quoteId',
@@ -230,30 +309,16 @@ const ClientQuotesPage = () => {
                             </DrawerHeader>
 
                             <div className="p-4 space-y-6">
-                                {/* Shipment Details Section */}
                                 <section className="space-y-3">
                                     <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Shipment Details</h3>
                                     <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span className="block text-gray-500 text-xs">Service</span>
-                                            {row.serviceType}
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500 text-xs">Cargo</span>
-                                            {row.cargoType}
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500 text-xs">Weight</span>
-                                            {row.weight} kg
-                                        </div>
-                                        <div>
-                                            <span className="block text-gray-500 text-xs">Incoterms</span>
-                                            {row.incoterms}
-                                        </div>
+                                        <div><span className="block text-gray-500 text-xs">Service</span>{row.serviceType}</div>
+                                        <div><span className="block text-gray-500 text-xs">Cargo</span>{row.cargoType}</div>
+                                        <div><span className="block text-gray-500 text-xs">Weight</span>{row.weight} kg</div>
+                                        <div><span className="block text-gray-500 text-xs">Incoterms</span>{row.incoterms}</div>
                                     </div>
                                 </section>
 
-                                {/* Carrier Quotes Section */}
                                 <section className="space-y-3">
                                     <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Carrier Rates</h3>
                                     <div className="space-y-3">
@@ -267,14 +332,10 @@ const ClientQuotesPage = () => {
                                                     <div className="font-bold text-gray-900">
                                                         {formatCurrency(q.price?.amount || 0, q.price?.currency)}
                                                     </div>
-                                                    <div className="text-[10px] text-gray-400">Arrives in {q.transitTime}</div>
                                                 </div>
                                                 <CarrierSelectButton quote={row} selectedCarrier={q} />
                                             </div>
                                         ))}
-                                        {(!row.quotes || row.quotes.length === 0) && (
-                                            <div className="text-sm text-gray-500 italic">No rates available.</div>
-                                        )}
                                     </div>
                                 </section>
                             </div>
@@ -292,7 +353,6 @@ const ClientQuotesPage = () => {
         {
             key: 'origin',
             header: 'Route',
-            sortable: true,
             render: (_: any, row: any) => (
                 <span className="text-sm">
                     <div className="font-medium">{row.origin}</div>
@@ -300,67 +360,16 @@ const ClientQuotesPage = () => {
                 </span>
             )
         },
-        { key: 'serviceType', header: 'Service', sortable: true },
+        { key: 'serviceType', header: 'Service' },
         {
             key: 'status',
             header: 'Status',
-            sortable: true,
             render: (value: string) => <StatusBadge status={value} />
         },
         {
             key: 'createdAt',
             header: 'Date',
-            sortable: true,
             render: (value: number) => new Date(value).toLocaleDateString()
-        },
-        // We can keep a robust "actions" column or simpler "View" button that triggers the same drawer
-        {
-            key: 'actions',
-            header: 'Actions',
-            render: (_: any, row: any) => (
-                <Drawer direction="right">
-                    <DrawerTrigger asChild>
-                        <Button variant="outline" size="sm">View Prices</Button>
-                    </DrawerTrigger>
-                    <DrawerContent className="max-w-md ml-auto h-full rounded-none border-l">
-                        <div className="h-full overflow-y-auto">
-                            <DrawerHeader>
-                                <DrawerTitle>Quote {row.quoteId}</DrawerTitle>
-                                <DrawerDescription>
-                                    {row.origin} → {row.destination}
-                                </DrawerDescription>
-                            </DrawerHeader>
-
-                            <div className="p-4 space-y-6">
-                                <section className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Carrier Rates</h3>
-                                    <div className="space-y-3">
-                                        {(row.quotes || []).map((q: any, idx: number) => (
-                                            <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex justify-between items-center">
-                                                <div>
-                                                    <div className="font-medium text-gray-900">{q.carrierName}</div>
-                                                    <div className="text-xs text-gray-500">{q.serviceType} • {q.transitTime}</div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="font-bold text-lg text-gray-900">
-                                                        {formatCurrency(q.price?.amount || 0, q.price?.currency)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            </div>
-                            <DrawerFooter className="border-t">
-                                <ConvertToBookingButton quote={row} />
-                                <DrawerClose asChild>
-                                    <Button variant="outline">Close</Button>
-                                </DrawerClose>
-                            </DrawerFooter>
-                        </div>
-                    </DrawerContent>
-                </Drawer>
-            )
         }
     ];
 
@@ -372,31 +381,33 @@ const ClientQuotesPage = () => {
                 description="View and manage your shipping quotes. converting them to bookings instantly."
                 backgroundImage="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
                 overlayOpacity={0.6}
-                className="mb-6"
+                className="mb-8"
             />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 {viewMode === 'create' ? (
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-semibold text-gray-900">New Quote Request</h2>
-                            <Button variant="ghost" onClick={() => setViewMode('list')} disabled={isSubmitting}>Cancel</Button>
+                    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-bold text-gray-900">New Quote Request</h2>
+                            <Button variant="ghost" onClick={() => setMode('list')} disabled={isSubmitting}>Cancel</Button>
                         </div>
                         <QuoteRequestForm
                             onSubmit={handleCreateQuote}
-                            onCancel={() => setViewMode('list')}
+                            onCancel={() => setMode('list')}
+                            initialStep={currentStep}
+                            onStepChange={(step) => setMode('create', undefined, step)}
                         />
                     </div>
+                ) : viewMode === 'result' ? (
+                    <QuoteResultsView quote={activeQuote} onBack={() => setMode('list')} />
                 ) : (
                     <>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-semibold text-gray-900">
-                                Recent Quotes
-                                <span className="text-sm text-gray-500 ml-2">
-                                    ({quotes.length})
-                                </span>
-                            </h2>
-                            <Button onClick={() => setViewMode('create')}>
+                        <div className="flex justify-between items-center mb-8">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold text-gray-900">Recent Quotes</h2>
+                                <p className="text-sm text-gray-500">Track and manage your shipping requests</p>
+                            </div>
+                            <Button onClick={() => setMode('create')} className="bg-blue-600 hover:bg-blue-700 h-10 px-6">
                                 New Quote
                             </Button>
                         </div>
@@ -404,14 +415,15 @@ const ClientQuotesPage = () => {
                         <DataTable
                             data={quotes}
                             columns={columns as any}
-                            searchPlaceholder="Search quotes..."
+                            searchPlaceholder="Search by route, carrier, or ID..."
                             rowsPerPage={10}
                         />
                     </>
                 )}
             </div>
-
-            <Footer />
+            <div className="mt-12">
+                <Footer />
+            </div>
         </div>
     );
 };

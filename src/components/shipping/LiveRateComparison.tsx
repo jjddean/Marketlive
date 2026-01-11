@@ -28,12 +28,12 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
   const fetchRates = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log('Fetching live rates...', rateRequest);
       const carrierRates = await getAllCarrierRates(rateRequest);
       setRates(carrierRates);
-      
+
       if (carrierRates.length === 0) {
         setError('No rates available for this route');
       }
@@ -69,9 +69,9 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
       'fedex': { color: 'bg-orange-100 text-orange-800', label: 'FedEx Direct' },
       'ups': { color: 'bg-yellow-100 text-yellow-800', label: 'UPS Direct' },
     };
-    
+
     const badge = badges[provider] || { color: 'bg-gray-100 text-gray-800', label: 'Direct' };
-    
+
     return (
       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
         {badge.label}
@@ -162,7 +162,7 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
                       <p className="text-xs text-gray-500">Transit: {rate.transit_time}</p>
                     </div>
                   </div>
-                  
+
                   <div className="text-right">
                     <div className="text-xl font-bold text-gray-900">
                       {formatCurrency(rate.cost, rate.currency)}
@@ -204,6 +204,7 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
                     <li>• Transit times may vary based on pickup/delivery locations</li>
                     <li>• Additional fees may apply for residential delivery</li>
                     <li>• Rates include base shipping cost only</li>
+                    <li>• Manage your <a href="/account" className="underline font-medium decoration-blue-400">API Keys</a> to enable more carriers</li>
                   </ul>
                 </div>
               </div>

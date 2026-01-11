@@ -30,9 +30,11 @@ interface QuoteFormData {
 interface QuoteRequestFormProps {
   onSubmit: (data: QuoteFormData) => void;
   onCancel: () => void;
+  initialStep?: number;
+  onStepChange?: (step: number) => void;
 }
 
-const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel }) => {
+const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel, initialStep = 1, onStepChange }) => {
   const [formData, setFormData] = useState<QuoteFormData>({
     origin: '',
     destination: '',
@@ -47,7 +49,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
     contactInfo: { name: '', email: '', phone: '', company: '' }
   });
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [selectedRate, setSelectedRate] = useState<CarrierRate | null>(null);
   const totalSteps = 5; // Added rate comparison step
 
@@ -83,8 +85,16 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
     });
   };
 
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, totalSteps));
-  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+  const nextStep = () => {
+    const next = Math.min(currentStep + 1, totalSteps);
+    setCurrentStep(next);
+    onStepChange?.(next);
+  };
+  const prevStep = () => {
+    const prev = Math.max(currentStep - 1, 1);
+    setCurrentStep(prev);
+    onStepChange?.(prev);
+  };
 
   const renderStep = () => {
     switch (currentStep) {
@@ -92,7 +102,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Shipment Details</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Origin</label>
@@ -108,7 +118,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
                   <option value="Liverpool, UK">Liverpool, UK</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Destination</label>
                 <select
@@ -140,7 +150,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
                   <option value="rail">Rail Transport</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cargo Type</label>
                 <select
@@ -163,7 +173,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Cargo Specifications</h3>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Total Weight (kg)</label>
               <input
@@ -213,7 +223,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
                   placeholder="Enter cargo value"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Incoterms</label>
                 <select
@@ -235,7 +245,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Service Options</h3>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Urgency</label>
               <div className="space-y-2">
@@ -293,7 +303,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
@@ -306,7 +316,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
                 <input
@@ -331,7 +341,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                 <input
@@ -362,8 +372,8 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
             state: '',
             zip: '20095',
             country: formData.destination.includes('DE') ? 'DE' :
-                     formData.destination.includes('US') ? 'US' :
-                     formData.destination.includes('CN') ? 'CN' : 'DE',
+              formData.destination.includes('US') ? 'US' :
+                formData.destination.includes('CN') ? 'CN' : 'DE',
           },
           parcel: {
             length: parseFloat(formData.dimensions.length) || 40,
@@ -418,7 +428,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
           <span className="text-sm text-gray-500">{Math.round((currentStep / totalSteps) * 100)}% Complete</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
+          <div
             className="bg-primary h-2 rounded-full transition-all duration-300"
             style={{ width: `${(currentStep / totalSteps) * 100}%` }}
           />
@@ -437,12 +447,12 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel 
             </Button>
           )}
         </div>
-        
+
         <div className="flex space-x-3">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          
+
           {currentStep < totalSteps ? (
             <Button type="button" onClick={nextStep}>
               Next

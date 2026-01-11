@@ -88,44 +88,9 @@ export const createInstantQuoteAndBooking = mutation({
 
     const transitTime = estimateTransitTime(request.origin, request.destination, request.serviceType);
 
-    // Define a long list of carriers based on service type
-    const carrierTemplates = request.serviceType === 'sea'
-      ? [
-        { id: "MAERSK", name: "Maersk Line", multiplier: 1.0, logo: "🚢" },
-        { id: "MSC", name: "MSC Mediterranean Shipping", multiplier: 1.05, logo: "🚢" },
-        { id: "COSCO", name: "COSCO Shipping", multiplier: 0.95, logo: "🚢" },
-        { id: "HAPAG", name: "Hapag-Lloyd", multiplier: 1.02, logo: "🚢" },
-        { id: "MAERSK", name: "Maersk Line", multiplier: 1.0 },
-        { id: "MSC", name: "MSC Mediterranean Shipping", multiplier: 1.08 },
-        { id: "COSCO", name: "COSCO Shipping", multiplier: 0.95 }
-      ]
-      : [
-        { id: "DHL", name: "DHL Express", multiplier: 1.0 },
-        { id: "FEDEX", name: "FedEx Express", multiplier: 1.12 },
-        { id: "UPS", name: "UPS Worldwide", multiplier: 1.05 }
-      ];
-
-    // Generate real calculated quotes for each carrier
-    const quotes = carrierTemplates.map(carrier => {
-      const carrierPrice = Math.round(pricing.total * carrier.multiplier * 100) / 100;
-      return {
-        carrierId: carrier.id,
-        carrierName: carrier.name,
-        serviceType: request.serviceType || "air",
-        transitTime: transitTime,
-        price: {
-          amount: carrierPrice,
-          currency: "USD",
-          breakdown: {
-            baseRate: Math.round(pricing.baseRate * carrier.multiplier * 100) / 100,
-            fuelSurcharge: Math.round(pricing.fuelSurcharge * carrier.multiplier * 100) / 100,
-            securityFee: pricing.securityFee,
-            documentation: pricing.documentation,
-          },
-        },
-        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      };
-    });
+    // We no longer use backend-generated fallback quotes. 
+    // The frontend uses LiveRateComparison (Shippo/ReachShip) for real-time rates.
+    const quotes: any[] = [];
 
     // Link to current user when available
     const identity = await ctx.auth.getUserIdentity();
@@ -148,7 +113,7 @@ export const createInstantQuoteAndBooking = mutation({
       createdAt: Date.now(),
     } as any);
 
-    return { quoteId, docId };
+    return { quoteId, docId, quotes };
   },
 });
 

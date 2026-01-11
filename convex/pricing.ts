@@ -88,22 +88,27 @@ export function calculateShippingPrice(params: PricingParams): PriceBreakdown {
     }
 
     // Base rates per km
-    const ratePerKm = {
-        'sea': 0.08,      // Cheapest
-        'air': 0.35,      // Expensive
-        'express': 0.50,  // Most expensive
-    }[serviceType.toLowerCase()] || 0.20;
+    const sType = serviceType.toLowerCase();
+    const ratePerKm: Record<string, number> = {
+        'sea': 0.08,
+        'ocean': 0.08,
+        'air': 0.35,
+        'express': 0.50,
+    };
+    const currentRatePerKm = ratePerKm[sType] || 0.20;
 
     // Weight rate per kg
-    const ratePerKg = {
+    const ratePerKg: Record<string, number> = {
         'sea': 2.5,
+        'ocean': 2.5,
         'air': 8.0,
         'express': 12.0,
-    }[serviceType.toLowerCase()] || 5.0;
+    };
+    const currentRatePerKg = ratePerKg[sType] || 5.0;
 
     // Calculate components
-    const baseRate = distanceKm * ratePerKm;
-    const weightSurcharge = weightKg * ratePerKg;
+    const baseRate = distanceKm * currentRatePerKm;
+    const weightSurcharge = weightKg * currentRatePerKg;
     const subtotal = baseRate + weightSurcharge;
 
     // Additional fees
@@ -128,6 +133,7 @@ export function calculateShippingPrice(params: PricingParams): PriceBreakdown {
 
 // Transit time estimation
 export function estimateTransitTime(origin: string, destination: string, serviceType: string): string {
+    const sType = serviceType.toLowerCase();
     const originCoords = getCityCoords(origin);
     const destCoords = getCityCoords(destination);
 
@@ -146,11 +152,11 @@ export function estimateTransitTime(origin: string, destination: string, service
         if (distanceKm < 2000) return '1-2 days';
         if (distanceKm < 5000) return '2-3 days';
         return '3-5 days';
-    } else if (serviceType.toLowerCase() === 'air') {
+    } else if (sType === 'air') {
         if (distanceKm < 2000) return '2-4 days';
         if (distanceKm < 5000) return '4-7 days';
         return '7-10 days';
-    } else { // sea
+    } else { // sea / ocean
         if (distanceKm < 2000) return '10-14 days';
         if (distanceKm < 5000) return '14-21 days';
         if (distanceKm < 10000) return '21-30 days';
