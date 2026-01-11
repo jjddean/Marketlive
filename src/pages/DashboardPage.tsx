@@ -7,8 +7,10 @@ import Footer from '@/components/layout/Footer';
 import RealTimeTracker from '@/components/ui/real-time-tracker';
 import MobileDashboard from '@/components/mobile/MobileDashboard';
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { toast } from 'sonner';
+import { Play } from 'lucide-react';
 
 const DashboardPage = () => {
   // Live data hooks
@@ -209,6 +211,7 @@ const DashboardPage = () => {
                     Carrier APIs
                   </Link>
                 </Button>
+                <SimulateTrafficButton />
               </div>
             </div>
 
@@ -281,5 +284,34 @@ const DashboardPage = () => {
     </div>
   );
 };
+
+function SimulateTrafficButton() {
+  const moveShipments = useMutation((api as any).simulation.moveShipments);
+  const [running, setRunning] = useState(false);
+
+  const handleRun = async () => {
+    setRunning(true);
+    try {
+      const count = await moveShipments();
+      toast.success("Simulation update: " + count);
+    } catch (e) {
+      toast.error("Simulation failed (is the function defined?)");
+    } finally {
+      setTimeout(() => setRunning(false), 500);
+    }
+  };
+
+  return (
+    <Button
+      onClick={handleRun}
+      variant="outline"
+      className="w-full justify-start text-blue-600 border-blue-200 hover:bg-blue-50"
+      disabled={running}
+    >
+      <Play className={`mr-2 h-4 w-4 ${running ? 'animate-spin' : ''}`} />
+      {running ? "Simulating..." : "Simulate Traffic"}
+    </Button>
+  )
+}
 
 export default DashboardPage;

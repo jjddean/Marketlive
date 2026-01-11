@@ -5,11 +5,25 @@ import { Button } from '@/components/ui/button';
 import Footer from '@/components/layout/Footer';
 import AdvancedSearch from '@/components/ui/advanced-search';
 import RealTimeTracker from '@/components/ui/real-time-tracker';
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { Sparkles, Mail } from "lucide-react";
+import { toast } from 'sonner';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription
+} from '@/components/ui/sheet';
 
 const ShipmentsPage = () => {
   const [activeTab, setActiveTab] = useState('active');
+  const [selectedShipment, setSelectedShipment] = useState<any>(null);
+  const [emailing, setEmailing] = useState(false);
+
+  // Action to send email
+  const sendReport = useAction((api as any).reporting.sendShipmentReport);
 
   // Hardcoded fallback data
   const HARDCODED_SHIPMENTS = {
@@ -260,7 +274,11 @@ const ShipmentsPage = () => {
       header: 'Actions',
       render: (value: string, row: typeof filteredShipments.active[0]) => (
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm">View</Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            console.log("Viewing row:", row);
+            toast.info("Opening Analysis...");
+            setSelectedShipment(row);
+          }}>View</Button>
           {activeTab === 'active' && (
             <Button variant="outline" size="sm">Track</Button>
           )}
@@ -268,6 +286,36 @@ const ShipmentsPage = () => {
       )
     },
   ];
+
+  // --- REPORTING HANDLER ---
+  const handleEmailReport = async () => {
+    if (!selectedShipment) return;
+
+    // Simple prompt for demo purposes
+    const email = prompt("Enter email address to receive the report:", "jason@example.com");
+    if (!email) return;
+
+    setEmailing(true);
+    toast.info(`Sending report to ${email}...`);
+
+    const seed = selectedShipment.id.split('').reduce((a: any, c: any) => a + c.charCodeAt(0), 0);
+    const riskScore = (seed % 100);
+
+    try {
+      await sendReport({
+        shipmentId: selectedShipment.id,
+        email,
+        riskScore
+      });
+      toast.success(`Report sent successfully!`);
+    } catch (e: any) {
+      toast.error("Failed to send report. check console.");
+      console.error(e);
+    } finally {
+      setEmailing(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -358,8 +406,133 @@ const ShipmentsPage = () => {
       </div>
 
       <Footer />
+
+      {/* Shipment Details & Risk Analysis Sheet */}
+      <Sheet open={!!selectedShipment} onOpenChange={(open) => !open && setSelectedShipment(null)}>
+        <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Shipment Analysis</SheetTitle>
+            <SheetDescription>Real-time predictive insights for {selectedShipment?.id}</SheetDescription>
+          </SheetHeader>
+
+          {selectedShipment && (
+            <div className="py-6 space-y-8">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <span className="text-gray-500 block">Origin</span>
+                  <span className="font-medium text-gray-900">{selectedShipment.origin}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray-500 block">Destination</span>
+                  <span className="font-medium text-gray-900">{selectedShipment.destination}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray-500 block">Status</span>
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${selectedShipment.status === 'Delivered' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                    }`}>{selectedShipment.status}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray-500 block">ETA</span>
+                  <span className="font-medium text-gray-900">{selectedShipment.eta}</span>
+                </div>
+              </div>
+
+              {/* AI Risk Analysis Widget */}
+              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center">
+                    <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
+                    Predictive Delay Risk
+                  </h3>
+                  <span className="text-xs text-slate-500">Confidence: 94%</span>
+                </div>
+
+                <RiskMeter shipmentId={selectedShipment.id} />
+
+                <div className="mt-4 space-y-3">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Risk Factors Detected</h4>
+                  <div className="flex items-start space-x-3 text-sm bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                    <div className="mt-0.5">⚠️</div>
+                    <div>
+                      <p className="font-medium text-slate-800">Port Congestion at {selectedShipment.destination.split(',')[0]}</p>
+                      <p className="text-slate-500 text-xs mt-0.5">Average dwell time increased by 48h in last 2 days.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 text-sm bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                    <div className="mt-0.5">🌦️</div>
+                    <div>
+                      <p className="font-medium text-slate-800">Weather Alert: Atlantic Route</p>
+                      <p className="text-slate-500 text-xs mt-0.5">Minor deviation expected due to storm front.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={handleEmailReport}
+                  disabled={emailing}
+                >
+                  {emailing ? (
+                    <>Sending Report...</>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Detailed Logistics Report
+                    </>
+                  )}
+                </Button>
+              </div>
+
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
     </div>
   );
 };
+
+// Simple Risk Meter Component
+function RiskMeter({ shipmentId }: { shipmentId: string }) {
+  // Deterministic random based on ID char codes
+  const seed = shipmentId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const riskScore = (seed % 100);
+
+  let level = 'Low';
+  let color = 'bg-green-500';
+  let text = 'text-green-700';
+  let bg = 'bg-green-50';
+
+  if (riskScore > 40) {
+    level = 'Medium';
+    color = 'bg-yellow-500';
+    text = 'text-yellow-700';
+    bg = 'bg-yellow-50';
+  }
+  if (riskScore > 75) {
+    level = 'High';
+    color = 'bg-red-500';
+    text = 'text-red-700';
+    bg = 'bg-red-50';
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-end">
+        <span className={`text-2xl font-bold ${text}`}>{riskScore}%</span>
+        <span className={`px-2 py-1 rounded text-xs font-medium ${bg} ${text}`}>{level} Risk</span>
+      </div>
+      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+        <div
+          className={`h-full ${color} transition-all duration-1000 ease-out`}
+          style={{ width: `${riskScore}%` }}
+        />
+      </div>
+    </div>
+  )
+}
 
 export default ShipmentsPage;

@@ -120,7 +120,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
   });
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => 
+    setNotifications(prev =>
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     );
   };
@@ -174,17 +174,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM11 19H6.5A2.5 2.5 0 014 16.5v-9A2.5 2.5 0 016.5 5h11A2.5 2.5 0 0120 7.5v3.5" />
         </svg>
-        
+
         {/* Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
-        )}
-        
-        {/* Urgent indicator */}
-        {urgentCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
         )}
       </button>
 
@@ -204,7 +199,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
                 </svg>
               </button>
             </div>
-            
+
             {/* Filter Tabs */}
             <div className="flex space-x-1">
               {[
@@ -275,7 +270,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                      
+
                       {notification.actionUrl && (
                         <div className="mt-2">
                           <Button variant="outline" size="sm">
@@ -284,7 +279,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
                         </div>
                       )}
                     </div>
-                    
+
                     {!notification.read && (
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     )}

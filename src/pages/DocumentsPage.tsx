@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, FileBadge, FileWarning, Upload, Eye, Send, RefreshCw, CheckCircle } from 'lucide-react';
+import { FileText, FileBadge, FileWarning, Upload, Eye, Send, RefreshCw, CheckCircle, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DocumentsPage = () => {
@@ -66,6 +66,7 @@ const DocumentsPage = () => {
     // Mutations
     const createDocument = useMutation(api.documents.createDocument);
     const setDocusignEnvelope = useMutation(api.documents.setDocusignEnvelope);
+    const generateShareLink = useMutation((api as any).documents.generateShareLink);
 
     // --- Actions ---
 
@@ -107,6 +108,17 @@ const DocumentsPage = () => {
             toast.error(`Failed to send: ${e.message}`);
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleShare = async (doc: any) => {
+        try {
+            const token = await generateShareLink({ documentId: doc._id });
+            const url = `${window.location.origin}/shared/${token}`;
+            await navigator.clipboard.writeText(url);
+            toast.success("Share link copied to clipboard!");
+        } catch (e) {
+            toast.error("Failed to generate link");
         }
     };
 
@@ -189,6 +201,9 @@ const DocumentsPage = () => {
                             <Send className="h-4 w-4" />
                         </Button>
                     )}
+                    <Button variant="ghost" size="icon" onClick={() => handleShare(row)} title="Share Public Link">
+                        <Share2 className="h-4 w-4" />
+                    </Button>
                 </div>
             )
         },
@@ -243,12 +258,6 @@ const DocumentsPage = () => {
                     <div className="flex space-x-3">
                         <SmartUploadButton onParse={async (data) => {
                             // Pre-fill form and open drawer
-                            // We need to pass this data to the drawer. 
-                            // This requires lifting the state or passing a 'initialData' prop to CreateDocumentDrawer.
-                            // For now, let's just log it and show a toast, or better yet, refactor slightly.
-                            // actually, let's expose a way to open the drawer WITH data.
-
-                            // Implementation detail: I will add a 'parsedData' prop to the drawer state in the parent
                         }} />
 
                         <Button variant="outline" onClick={() => {
@@ -514,14 +523,35 @@ function SmartUploadButton({ onParse }: { onParse: (data: any) => void }) {
         toast.info("🤖 AI is reading your document...");
 
         try {
-            // Mock reading file (in real app, read as base64)
+            // 1. Try Local Ollama First
+            try {
+                const { askOllama, FREIGHT_PROMPT } = await import('@/lib/ollama');
+                toast.loading("Contacting Local Ollama...", { id: 'ollama-load' });
+
+                const jsonStr = await askOllama(FREIGHT_PROMPT + file.name, "llama3");
+                const result = JSON.parse(jsonStr);
+
+                toast.dismiss('ollama-load');
+                toast.success("Processed by Local Llama 3!");
+                onParse(result);
+                return;
+            } catch (ollamaErr) {
+                console.warn("Ollama failed, falling back to basic mock:", ollamaErr);
+                toast.dismiss('ollama-load');
+                // Proceed to fallback
+            }
+
+            // 2. Fallback to Cloud Mock
             const result = await parseDocument({
                 fileData: "base64-mock",
                 fileName: file.name
             });
             onParse(result);
+            toast.success("Processed by Cloud AI (Mock)");
+
         } catch (err) {
-            toast.error("AI Analysis failed");
+            toast.error("AI Analysis failed completely.");
+            console.error(err);
         } finally {
             setAnalyzing(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

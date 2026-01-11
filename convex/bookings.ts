@@ -30,7 +30,7 @@ export const createBooking = mutation({
   handler: async (ctx, args) => {
     // Link to current user when available
     const identity = await ctx.auth.getUserIdentity();
-    let linkedUserId: any = null;
+    let linkedUserId: any = undefined;
     if (identity) {
       const user = await ctx.db
         .query("users")
@@ -80,6 +80,62 @@ export const createBooking = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     } as any);
+
+    // AUTOMATIC INVOICE GENERATION
+    // Create a pending payment attempt so it shows up in Payments Page
+    try {
+      const amount = selected.price?.amount || 0;
+      const currency = selected.price?.currency || "USD";
+      const symbol = currency === "USD" ? "$" : (currency === "GBP" ? "£" : "€");
+
+      await ctx.db.insert("paymentAttempts", {
+        payment_id: `PAY-${bookingId}`,
+        invoice_id: `INV-${bookingId}`,
+        statement_id: `ST-${bookingId}`,
+        status: "pending",
+        billing_date: Date.now(),
+        charge_type: "one_time",
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        payer: {
+          email: args.customerDetails.email,
+          first_name: args.customerDetails.name.split(' ')[0] || 'Guest',
+          last_name: args.customerDetails.name.split(' ').slice(1).join(' ') || '',
+          user_id: identity?.subject || 'TRANSIT_USER'
+        },
+        payment_source: {
+          card_type: 'n/a',
+          last4: '0000'
+        },
+        subscription_items: [
+          {
+            amount: { amount, amount_formatted: `${symbol}${amount}`, currency, currency_symbol: symbol },
+            plan: {
+              id: 'freight-one-time',
+              // Trim potential newlines from carrierName
+              name: `Freight: ${(selected.carrierName || 'Carrier').trim()} - ${(selected.serviceType || 'Standard').trim()}`,
+              slug: 'freight',
+              amount,
+              currency,
+              period: 'one_time',
+              interval: 0
+            },
+            status: 'pending',
+            period_start: Date.now(),
+            period_end: Date.now()
+          }
+        ],
+        totals: {
+          grand_total: { amount, amount_formatted: `${symbol}${amount}`, currency, currency_symbol: symbol },
+          subtotal: { amount, amount_formatted: `${symbol}${amount}`, currency, currency_symbol: symbol },
+          tax_total: { amount: 0, amount_formatted: `${symbol}0`, currency, currency_symbol: symbol }
+        },
+        userId: linkedUserId
+      });
+    } catch (invErr) {
+      console.error("INVOICE GENERATION FAILED (Booking allowed):", invErr);
+      // We do not rethrow, so booking succeeds.
+    }
 
     return { bookingId, docId };
   },
@@ -133,7 +189,7 @@ export const updateBookingStatus = mutation({
       .query("bookings")
       .withIndex("byBookingId", (q) => q.eq("bookingId", bookingId))
       .unique();
-    
+
     if (!booking) {
       throw new Error("Booking not found");
     }

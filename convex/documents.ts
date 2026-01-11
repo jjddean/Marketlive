@@ -78,7 +78,7 @@ export const createDocument = mutation({
 });
 
 export const listMyDocuments = query({
-  args: { 
+  args: {
     type: v.optional(v.string()),
     bookingId: v.optional(v.string()),
     shipmentId: v.optional(v.string()),
@@ -169,11 +169,11 @@ export const updateDocument = mutation({
   },
   handler: async (ctx, { documentId, documentData, status }) => {
     const updates: any = { updatedAt: Date.now() };
-    
+
     if (documentData) {
       updates.documentData = documentData;
     }
-    
+
     if (status) {
       updates.status = status;
     }
@@ -210,4 +210,33 @@ export const setDocusignEnvelope = mutation({
     } as any);
     return documentId;
   }
+});
+
+export const generateShareLink = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    // Check auth
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+    await ctx.db.patch(documentId, {
+      shareToken: token,
+      updatedAt: Date.now()
+    });
+
+    return token;
+  },
+});
+
+export const getSharedDocument = query({
+  args: { shareToken: v.string() },
+  handler: async (ctx, { shareToken }) => {
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("byShareToken", (q) => q.eq("shareToken", shareToken))
+      .unique();
+    return doc;
+  },
 });

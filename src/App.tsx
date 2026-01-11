@@ -3,6 +3,14 @@ import { ClerkProvider, SignedIn, SignedOut, UserButton } from '@clerk/clerk-rea
 import { BrowserRouter, Route, Routes, useNavigate, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import MobileNavigation from './components/mobile/MobileNavigation';
+import { CommandMenu } from './components/CommandMenu';
+import { AIAssistant } from './components/ai/AIAssistant';
+
+// ... (other imports)
+// Note: I cannot replace imports easily if they are scattered. 
+// I will target the imports block at the top if possible, or just add them.
+// Actually, looking at the file, imports are at lines 4-5.
+// I will use a larger block replacement to be safe.
 
 // Import all pages
 import {
@@ -25,6 +33,7 @@ import {
   ClientBookingsPage
 } from './pages';
 import ApiDocsPage from './pages/ApiDocsPage';
+import SharedDocumentPage from './pages/SharedDocumentPage';
 
 // Import your publishable key
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -72,6 +81,8 @@ function Layout({ children }: LayoutProps) {
     <>
       <Navbar />
       <MobileNavigation />
+      <CommandMenu />
+      <AIAssistant />
       <main className="min-h-screen">{children}</main>
     </>
   );
@@ -200,6 +211,7 @@ function App() {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/api" element={<ApiDocsPage />} />
+              <Route path="/shared/:token" element={<SharedDocumentPage />} />
 
               {/* Protected User Pages */}
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
