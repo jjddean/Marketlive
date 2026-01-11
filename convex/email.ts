@@ -1,12 +1,12 @@
 "use node";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 
 // This action safely handles email sending
 // If RESEND_API_KEY is present, it calls the API.
 // If not, it logs to console (Mock Mode).
 
-export const sendEmail = action({
+export const sendEmail = internalAction({
     args: {
         to: v.string(),
         subject: v.string(),

@@ -7,6 +7,7 @@ import { paymentAttemptSchemaValidator } from "./paymentAttemptTypes";
 export default defineSchema({
   users: defineTable({
     name: v.string(),
+    email: v.optional(v.string()),
     // this the Clerk ID, stored in the subject JWT field
     externalId: v.string(),
   }).index("byExternalId", ["externalId"]),
@@ -212,4 +213,24 @@ export default defineSchema({
     updatedAt: v.number(),
     expiresAt: v.optional(v.number()),
   }).index("byKey", ["key"]),
+
+  invoices: defineTable({
+    invoiceNumber: v.string(),
+    bookingId: v.id("bookings"),
+    customerId: v.optional(v.id("users")),
+    amount: v.number(),
+    currency: v.string(),
+    status: v.string(), // "pending", "paid", "overdue", "void"
+    dueDate: v.string(),
+    items: v.array(v.object({
+      description: v.string(),
+      quantity: v.number(),
+      unitPrice: v.number(),
+      total: v.number(),
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("byBookingId", ["bookingId"])
+    .index("byCustomerId", ["customerId"])
+    .index("byInvoiceNumber", ["invoiceNumber"]),
 }); 

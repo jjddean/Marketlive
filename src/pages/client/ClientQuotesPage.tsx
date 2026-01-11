@@ -112,21 +112,16 @@ const ClientQuotesPage = () => {
         );
     };
 
-    // Helper for booking button inside drawer
-    const ConvertToBookingButton = ({ quote }: { quote: any }) => {
+    // Helper for booking button next to each carrier
+    const CarrierSelectButton = ({ quote, selectedCarrier }: { quote: any, selectedCarrier: any }) => {
         const createBooking = useMutation(api.bookings.createBooking);
         const upsertShipment = useMutation(api.shipments.upsertShipment);
         const [loading, setLoading] = useState(false);
 
-        const handleConvert = async () => {
+        const handleBook = async (e: React.MouseEvent) => {
+            e.stopPropagation();
             setLoading(true);
             try {
-                const bestRate = quote.quotes?.[0]; // Simplification for MVP
-                if (!bestRate) {
-                    alert("No rates available to book");
-                    return;
-                }
-
                 const contact = quote.contactInfo || {
                     name: 'Guest User',
                     email: 'guest@example.com',
@@ -134,10 +129,10 @@ const ClientQuotesPage = () => {
                     company: 'N/A'
                 };
 
-                // 1. Create Booking
+                // 1. Create Booking for SELECTED carrier
                 const bookingRes = await createBooking({
                     quoteId: quote.quoteId,
-                    carrierQuoteId: bestRate.carrierId,
+                    carrierQuoteId: selectedCarrier.carrierId,
                     customerDetails: {
                         name: contact.name || 'Guest',
                         email: contact.email || 'guest@example.com',
@@ -161,9 +156,8 @@ const ClientQuotesPage = () => {
                     specialInstructions: "Standard handling"
                 });
 
-                // 2. Upsert Shipment immediately (Twin App Behavior)
+                // 2. Upsert Shipment immediately
                 const shipmentId = bookingRes?.bookingId || `SHP-${Date.now()}`;
-
                 await upsertShipment({
                     shipmentId,
                     tracking: {
@@ -172,13 +166,12 @@ const ClientQuotesPage = () => {
                             city: quote.origin || 'London',
                             state: '',
                             country: 'UK',
-                            // City coordinates lookup for map display
                             coordinates: getCityCoordinates(quote.origin),
                         },
                         estimatedDelivery: new Date(Date.now() + 5 * 86400000).toISOString(),
-                        carrier: bestRate.carrierName || bestRate.carrierId,
+                        carrier: selectedCarrier.carrierName || selectedCarrier.carrierId,
                         trackingNumber: `TBA-${shipmentId}`,
-                        service: bestRate.serviceType || quote.serviceType,
+                        service: selectedCarrier.serviceType || quote.serviceType,
                         shipmentDetails: {
                             weight: quote.weight || '',
                             dimensions: `${quote.dimensions?.length || ''}x${quote.dimensions?.width || ''}x${quote.dimensions?.height || ''}`,
@@ -191,19 +184,14 @@ const ClientQuotesPage = () => {
                                 timestamp: new Date().toISOString(),
                                 status: 'Shipment created',
                                 location: quote.origin || 'Origin',
-                                description: `Booking ${shipmentId} confirmed with ${bestRate.carrierName}`,
+                                description: `Booking confirmed with ${selectedCarrier.carrierName}`,
                             },
                         ],
                     },
                 });
 
-                toast.success(`Booking confirmed! Redirecting to bookings...`);
-
-                // 3. Redirect to Bookings Page
-                setTimeout(() => {
-                    window.location.href = '/bookings';
-                }, 1000);
-
+                toast.success(`Booking confirmed with ${selectedCarrier.carrierName}!`);
+                setTimeout(() => { window.location.href = '/bookings'; }, 1000);
             } catch (e) {
                 console.error(e);
                 toast.error("Failed to create booking");
@@ -213,8 +201,8 @@ const ClientQuotesPage = () => {
         };
 
         return (
-            <Button onClick={handleConvert} disabled={loading} className="w-full sm:w-auto">
-                {loading ? 'Converting...' : 'Convert to Booking'}
+            <Button onClick={handleBook} disabled={loading} size="sm" className="h-8 px-3 text-xs">
+                {loading ? 'Booking...' : 'Book'}
             </Button>
         );
     };
@@ -223,19 +211,19 @@ const ClientQuotesPage = () => {
     const columns = [
         {
             key: 'quoteId',
-            header: 'Quote ID',
-            sortable: true,
+            header: 'Rates',
+            sortable: false,
             render: (value: string, row: any) => (
                 <Drawer direction="right">
                     <DrawerTrigger asChild>
-                        <Button variant="link" className="p-0 h-auto font-medium text-blue-600 hover:underline">
-                            {value}
+                        <Button variant="outline" size="sm" className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50">
+                            View Rates
                         </Button>
                     </DrawerTrigger>
                     <DrawerContent className="max-w-md ml-auto h-full rounded-none border-l">
                         <div className="h-full overflow-y-auto">
                             <DrawerHeader>
-                                <DrawerTitle>Quote {row.quoteId}</DrawerTitle>
+                                <DrawerTitle>Carrier Quotes</DrawerTitle>
                                 <DrawerDescription>
                                     {row.origin} → {row.destination}
                                 </DrawerDescription>
@@ -270,17 +258,18 @@ const ClientQuotesPage = () => {
                                     <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Carrier Rates</h3>
                                     <div className="space-y-3">
                                         {(row.quotes || []).map((q: any, idx: number) => (
-                                            <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex justify-between items-center">
-                                                <div>
+                                            <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition-all">
+                                                <div className="flex-1">
                                                     <div className="font-medium text-gray-900">{q.carrierName}</div>
                                                     <div className="text-xs text-gray-500">{q.serviceType} • {q.transitTime}</div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="font-bold text-lg text-gray-900">
+                                                <div className="text-right mr-4">
+                                                    <div className="font-bold text-gray-900">
                                                         {formatCurrency(q.price?.amount || 0, q.price?.currency)}
                                                     </div>
-                                                    <div className="text-[10px] text-gray-400">Valid until {new Date(q.validUntil).toLocaleDateString()}</div>
+                                                    <div className="text-[10px] text-gray-400">Arrives in {q.transitTime}</div>
                                                 </div>
+                                                <CarrierSelectButton quote={row} selectedCarrier={q} />
                                             </div>
                                         ))}
                                         {(!row.quotes || row.quotes.length === 0) && (
@@ -291,9 +280,8 @@ const ClientQuotesPage = () => {
                             </div>
 
                             <DrawerFooter className="border-t">
-                                <ConvertToBookingButton quote={row} />
                                 <DrawerClose asChild>
-                                    <Button variant="outline">Close</Button>
+                                    <Button variant="outline" className="w-full">Close</Button>
                                 </DrawerClose>
                             </DrawerFooter>
                         </div>

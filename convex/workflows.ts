@@ -9,36 +9,36 @@ import { v } from "convex/values";
 
 // Auto-send email when shipment status changes
 export const onShipmentStatusChange = internalMutation({
-    args: {
-        shipmentId: v.string(),
-        oldStatus: v.string(),
-        newStatus: v.string(),
-        userEmail: v.optional(v.string()),
-    },
-    handler: async (ctx, { shipmentId, oldStatus, newStatus, userEmail }) => {
-        // Only send email if status actually changed
-        if (oldStatus === newStatus) return;
+  args: {
+    shipmentId: v.string(),
+    oldStatus: v.string(),
+    newStatus: v.string(),
+    userEmail: v.optional(v.string()),
+  },
+  handler: async (ctx, { shipmentId, oldStatus, newStatus, userEmail }) => {
+    // Only send email if status actually changed
+    if (oldStatus === newStatus) return;
 
-        // Get shipment details
-        const shipment = await ctx.db
-            .query("shipments")
-            .filter((q) => q.eq(q.field("shipmentId"), shipmentId))
-            .first();
+    // Get shipment details
+    const shipment = await ctx.db
+      .query("shipments")
+      .filter((q) => q.eq(q.field("shipmentId"), shipmentId))
+      .first();
 
-        if (!shipment) return;
+    if (!shipment) return;
 
-        // Determine email recipient
-        let recipientEmail = userEmail;
-        if (!recipientEmail && shipment.userId) {
-            const user = await ctx.db.get(shipment.userId);
-            recipientEmail = user?.email;
-        }
+    // Determine email recipient
+    let recipientEmail = userEmail;
+    if (!recipientEmail && shipment.userId) {
+      const user = await ctx.db.get(shipment.userId);
+      recipientEmail = user?.email || undefined;
+    }
 
-        if (!recipientEmail) return;
+    if (!recipientEmail) return;
 
-        // Send status update email
-        const emailSubject = `Shipment ${shipmentId} Status Update: ${newStatus}`;
-        const emailBody = `
+    // Send status update email
+    const emailSubject = `Shipment ${shipmentId} Status Update: ${newStatus}`;
+    const emailBody = `
       <h2>Shipment Status Update</h2>
       <p>Your shipment <strong>${shipmentId}</strong> status has been updated.</p>
       
@@ -68,83 +68,83 @@ export const onShipmentStatusChange = internalMutation({
       </p>
     `;
 
-        try {
-            await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
-                to: recipientEmail,
-                subject: emailSubject,
-                html: emailBody,
-            });
+    try {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
+        to: recipientEmail,
+        subject: emailSubject,
+        html: emailBody,
+      });
 
-            console.log(`✅ Scheduled status change email for ${shipmentId}: ${oldStatus} → ${newStatus}`);
-        } catch (error) {
-            console.error(`❌ Failed to schedule email for ${shipmentId}:`, error);
-        }
-    },
+      console.log(`✅ Scheduled status change email for ${shipmentId}: ${oldStatus} → ${newStatus}`);
+    } catch (error) {
+      console.error(`❌ Failed to schedule email for ${shipmentId}:`, error);
+    }
+  },
 });
 
 // Auto-generate invoice when booking is confirmed
 export const onBookingConfirmed = internalMutation({
-    args: {
-        bookingId: v.id("bookings"),
-    },
-    handler: async (ctx, { bookingId }) => {
-        const booking = await ctx.db.get(bookingId);
-        if (!booking) return;
+  args: {
+    bookingId: v.id("bookings"),
+  },
+  handler: async (ctx, { bookingId }) => {
+    const booking = await ctx.db.get(bookingId);
+    if (!booking) return;
 
-        // Check if invoice already exists
-        const existingInvoice = await ctx.db
-            .query("invoices")
-            .filter((q) => q.eq(q.field("bookingId"), bookingId))
-            .first();
+    // Check if invoice already exists
+    const existingInvoice = await ctx.db
+      .query("invoices")
+      .filter((q) => q.eq(q.field("bookingId"), bookingId))
+      .first();
 
-        if (existingInvoice) {
-            console.log(`Invoice already exists for booking ${bookingId}`);
-            return;
-        }
+    if (existingInvoice) {
+      console.log(`Invoice already exists for booking ${bookingId}`);
+      return;
+    }
 
-        // Generate invoice
-        const invoiceNumber = `INV-${Date.now()}`;
-        const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    // Generate invoice
+    const invoiceNumber = `INV-${Date.now()}`;
+    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
 
-        // Calculate amount (use quote price if available, otherwise estimate)
-        let amount = 1000; // Default
-        if (booking.quoteId) {
-            const quote = await ctx.db
-                .query("quotes")
-                .filter((q) => q.eq(q.field("quoteId"), booking.quoteId))
-                .first();
+    // Calculate amount (use quote price if available, otherwise estimate)
+    let amount = 1000; // Default
+    if (booking.quoteId) {
+      const quote = await ctx.db
+        .query("quotes")
+        .filter((q) => q.eq(q.field("quoteId"), booking.quoteId))
+        .first();
 
-            if (quote?.quotes?.[0]?.price?.amount) {
-                amount = quote.quotes[0].price.amount;
-            }
-        }
+      if (quote?.quotes?.[0]?.price?.amount) {
+        amount = quote.quotes[0].price.amount;
+      }
+    }
 
-        const invoice = await ctx.db.insert("invoices", {
-            invoiceNumber,
-            bookingId,
-            customerId: booking.userId,
-            amount,
-            currency: "USD",
-            status: "pending",
-            dueDate: dueDate.toISOString(),
-            items: [
-                {
-                    description: `Shipping Service - ${booking.pickupDetails?.address || 'Origin'} to ${booking.deliveryDetails?.address || 'Destination'}`,
-                    quantity: 1,
-                    unitPrice: amount,
-                    total: amount,
-                },
-            ],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        });
+    const invoice = await ctx.db.insert("invoices", {
+      invoiceNumber,
+      bookingId,
+      customerId: booking.userId,
+      amount,
+      currency: "USD",
+      status: "pending",
+      dueDate: dueDate.toISOString(),
+      items: [
+        {
+          description: `Shipping Service - ${booking.pickupDetails?.address || 'Origin'} to ${booking.deliveryDetails?.address || 'Destination'}`,
+          quantity: 1,
+          unitPrice: amount,
+          total: amount,
+        },
+      ],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
 
-        console.log(`✅ Auto-generated invoice ${invoiceNumber} for booking ${bookingId}`);
+    console.log(`✅ Auto-generated invoice ${invoiceNumber} for booking ${bookingId}`);
 
-        // Send invoice email to customer
-        if (booking.customerDetails?.email) {
-            const emailSubject = `Invoice ${invoiceNumber} - MarketLive`;
-            const emailBody = `
+    // Send invoice email to customer
+    if (booking.customerDetails?.email) {
+      const emailSubject = `Invoice ${invoiceNumber} - MarketLive`;
+      const emailBody = `
         <h2>New Invoice</h2>
         <p>An invoice has been generated for your booking.</p>
         
@@ -170,33 +170,33 @@ export const onBookingConfirmed = internalMutation({
         </p>
       `;
 
-            try {
-                await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
-                    to: booking.customerDetails.email,
-                    subject: emailSubject,
-                    html: emailBody,
-                });
+      try {
+        await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
+          to: booking.customerDetails.email,
+          subject: emailSubject,
+          html: emailBody,
+        });
 
-                console.log(`✅ Scheduled invoice email for ${invoiceNumber}`);
-            } catch (error) {
-                console.error(`❌ Failed to schedule invoice email:`, error);
-            }
-        }
+        console.log(`✅ Scheduled invoice email for ${invoiceNumber}`);
+      } catch (error) {
+        console.error(`❌ Failed to schedule invoice email:`, error);
+      }
+    }
 
-        return invoice;
-    },
+    return invoice;
+  },
 });
 
 // Auto-welcome email for new users
 export const onUserCreated = internalMutation({
-    args: {
-        userId: v.id("users"),
-        email: v.string(),
-        name: v.optional(v.string()),
-    },
-    handler: async (ctx, { userId, email, name }) => {
-        const emailSubject = "Welcome to MarketLive!";
-        const emailBody = `
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, email, name }) => {
+    const emailSubject = "Welcome to MarketLive!";
+    const emailBody = `
       <h2>Welcome to MarketLive${name ? `, ${name}` : ''}!</h2>
       <p>Thank you for joining our freight forwarding platform.</p>
       
@@ -220,16 +220,16 @@ export const onUserCreated = internalMutation({
       </p>
     `;
 
-        try {
-            await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
-                to: email,
-                subject: emailSubject,
-                html: emailBody,
-            });
+    try {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
+        to: email,
+        subject: emailSubject,
+        html: emailBody,
+      });
 
-            console.log(`✅ Scheduled welcome email for ${email}`);
-        } catch (error) {
-            console.error(`❌ Failed to schedule welcome email:`, error);
-        }
-    },
+      console.log(`✅ Scheduled welcome email for ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to schedule welcome email:`, error);
+    }
+  },
 });

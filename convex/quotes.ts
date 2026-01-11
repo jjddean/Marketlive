@@ -1,6 +1,7 @@
 import { internalMutation, mutation, query } from "./_generated/server"
 import { internal, api } from "./_generated/api"
 import { v } from "convex/values"
+import { calculateShippingPrice, estimateTransitTime } from "./pricing";
 
 export const createQuote = mutation({
   args: {
@@ -76,9 +77,6 @@ export const createInstantQuoteAndBooking = mutation({
     }),
   },
   handler: async (ctx, { request }) => {
-    // Import pricing engine
-    const { calculateShippingPrice, estimateTransitTime } = await import('./pricing');
-
     // Calculate real price based on route, weight, and service type
     const pricing = calculateShippingPrice({
       origin: request.origin,
@@ -90,29 +88,44 @@ export const createInstantQuoteAndBooking = mutation({
 
     const transitTime = estimateTransitTime(request.origin, request.destination, request.serviceType);
 
-    // Use real pricing for instant quote
-    const quoteId = `QT-${Date.now()}`;
-    const quotes = [
-      {
-        carrierId: "CARRIER-001",
-        carrierName: request.serviceType === 'sea' ? 'Maersk Line' :
-          request.serviceType === 'air' ? 'DHL Air Freight' :
-            'FedEx Express',
+    // Define a long list of carriers based on service type
+    const carrierTemplates = request.serviceType === 'sea'
+      ? [
+        { id: "MAERSK", name: "Maersk Line", multiplier: 1.0, logo: "🚢" },
+        { id: "MSC", name: "MSC Mediterranean Shipping", multiplier: 1.05, logo: "🚢" },
+        { id: "COSCO", name: "COSCO Shipping", multiplier: 0.95, logo: "🚢" },
+        { id: "HAPAG", name: "Hapag-Lloyd", multiplier: 1.02, logo: "🚢" },
+        { id: "MAERSK", name: "Maersk Line", multiplier: 1.0 },
+        { id: "MSC", name: "MSC Mediterranean Shipping", multiplier: 1.08 },
+        { id: "COSCO", name: "COSCO Shipping", multiplier: 0.95 }
+      ]
+      : [
+        { id: "DHL", name: "DHL Express", multiplier: 1.0 },
+        { id: "FEDEX", name: "FedEx Express", multiplier: 1.12 },
+        { id: "UPS", name: "UPS Worldwide", multiplier: 1.05 }
+      ];
+
+    // Generate real calculated quotes for each carrier
+    const quotes = carrierTemplates.map(carrier => {
+      const carrierPrice = Math.round(pricing.total * carrier.multiplier * 100) / 100;
+      return {
+        carrierId: carrier.id,
+        carrierName: carrier.name,
         serviceType: request.serviceType || "air",
         transitTime: transitTime,
         price: {
-          amount: pricing.total,
+          amount: carrierPrice,
           currency: "USD",
           breakdown: {
-            baseRate: pricing.baseRate,
-            fuelSurcharge: pricing.fuelSurcharge,
+            baseRate: Math.round(pricing.baseRate * carrier.multiplier * 100) / 100,
+            fuelSurcharge: Math.round(pricing.fuelSurcharge * carrier.multiplier * 100) / 100,
             securityFee: pricing.securityFee,
             documentation: pricing.documentation,
           },
         },
         validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
+      };
+    });
 
     // Link to current user when available
     const identity = await ctx.auth.getUserIdentity();
@@ -125,6 +138,7 @@ export const createInstantQuoteAndBooking = mutation({
       if (user) linkedUserId = user._id as any;
     }
 
+    const quoteId = `QT-${Date.now()}`;
     const docId = await ctx.db.insert("quotes", {
       ...request,
       quoteId,
@@ -134,32 +148,7 @@ export const createInstantQuoteAndBooking = mutation({
       createdAt: Date.now(),
     } as any);
 
-    // Auto-create a booking using the best (first) carrier quote
-    const best = quotes[0];
-    const bookingArgs = {
-      quoteId,
-      carrierQuoteId: best.carrierId,
-      customerDetails: request.contactInfo,
-      pickupDetails: {
-        address: request.origin,
-        date: new Date().toISOString(),
-        timeWindow: "09:00-17:00",
-        contactPerson: request.contactInfo.name,
-        contactPhone: request.contactInfo.phone,
-      },
-      deliveryDetails: {
-        address: request.destination,
-        date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-        timeWindow: "09:00-17:00",
-        contactPerson: request.contactInfo.name,
-        contactPhone: request.contactInfo.phone,
-      },
-      specialInstructions: undefined,
-    };
-
-    const booking: any = await ctx.runMutation(api.bookings.createBooking, bookingArgs);
-
-    return { quoteId, convexQuoteId: docId, booking };
+    return { quoteId, docId };
   },
 });
 
