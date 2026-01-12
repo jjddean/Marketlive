@@ -81,7 +81,7 @@ function Layout({ children }: LayoutProps) {
     <>
       <Navbar />
       <MobileNavigation />
-      <CommandMenu />
+      {/* <CommandMenu /> - temporarily disabled due to Convex connection issue */}
       <AIAssistant />
       <main className="min-h-screen">{children}</main>
     </>
