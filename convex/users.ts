@@ -1,6 +1,8 @@
-import { internalMutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import type { UserJSON } from "@clerk/backend";
-import { v, type Validator } from "convex/values";
+import { v } from "convex/values";
+import type { Validator } from "convex/values";
 
 export const current = query({
   args: {},

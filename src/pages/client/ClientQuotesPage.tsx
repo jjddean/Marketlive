@@ -233,7 +233,7 @@ const ClientQuotesPage = () => {
         }
     };
 
-    const columns = [
+    const columns: any[] = [
         {
             key: 'quoteId',
             header: 'Rates',
