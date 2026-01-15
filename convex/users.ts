@@ -11,6 +11,14 @@ export const current = query({
   },
 });
 
+export const listUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    // In real app, protect this with admin check
+    return await ctx.db.query("users").collect();
+  }
+});
+
 export const upsertFromClerk = internalMutation({
   args: { data: v.any() as Validator<UserJSON> }, // no runtime validation, trust Clerk
   async handler(ctx, { data }) {

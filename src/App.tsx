@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { ClerkProvider, SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
-import { BrowserRouter, Route, Routes, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import MobileNavigation from './components/mobile/MobileNavigation';
 import { CommandMenu } from './components/CommandMenu';
@@ -35,6 +35,15 @@ import {
 } from './pages';
 import ApiDocsPage from './pages/ApiDocsPage';
 import SharedDocumentPage from './pages/SharedDocumentPage';
+import AdminLayout from './components/layout/admin/AdminLayout';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminBookingsPage from './pages/admin/AdminBookingsPage';
+import AdminShipmentsPage from './pages/admin/AdminShipmentsPage';
+import AdminCarriersPage from './pages/admin/AdminCarriersPage';
+import AdminDocumentsPage from './pages/admin/AdminDocumentsPage';
+import AdminCompliancePage from './pages/admin/AdminCompliancePage';
+import AdminCustomersPage from './pages/admin/AdminCustomersPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 // Import your publishable key
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -49,6 +58,9 @@ interface LayoutProps {
 }
 
 function Layout({ children }: LayoutProps) {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
   useEffect(() => {
     // Register service worker for PWA functionality
     if ('serviceWorker' in navigator) {
@@ -80,8 +92,8 @@ function Layout({ children }: LayoutProps) {
 
   return (
     <>
-      <Navbar />
-      <MobileNavigation />
+      {!isAdmin && <Navbar />}
+      {!isAdmin && <MobileNavigation />}
       {/* <CommandMenu /> - temporarily disabled due to Convex connection issue */}
       <AIAssistant />
       <AIAssistant />
@@ -129,6 +141,8 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
+import { SignInButton, SignUpButton } from "@clerk/clerk-react";
+
 function ProtectedRoute({ children }: ProtectedRouteProps) {
   return (
     <>
@@ -139,12 +153,16 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign In Required</h2>
             <p className="text-gray-600 mb-6">Please sign in to access this page.</p>
             <div className="space-x-4">
-              <button className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-700">
-                Sign In
-              </button>
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50">
-                Sign Up
-              </button>
+              <SignInButton mode="modal">
+                <button className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-700">
+                  Sign In
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50">
+                  Sign Up
+                </button>
+              </SignUpButton>
             </div>
           </div>
         </div>
@@ -215,6 +233,66 @@ function App() {
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/api" element={<ApiDocsPage />} />
               <Route path="/shared/:token" element={<SharedDocumentPage />} />
+
+
+
+              {/* Admin Routes */}
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminDashboardPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/bookings" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminBookingsPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/shipments" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminShipmentsPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/carriers" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminCarriersPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/documents" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminDocumentsPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/compliance" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminCompliancePage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/customers" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminCustomersPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminSettingsPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              } />
 
               {/* Protected User Pages */}
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

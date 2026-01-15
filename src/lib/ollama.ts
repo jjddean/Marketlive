@@ -5,7 +5,7 @@ export interface OllamaResponse {
     done: boolean;
 }
 
-export async function askOllama(prompt: string, model: string = "llama3", format: string | undefined = "json"): Promise<string> {
+export async function askOllama(prompt: string, model: string = "llama3:8b", format: string | undefined = "json"): Promise<string> {
     try {
         const body: any = {
             model,
@@ -14,7 +14,8 @@ export async function askOllama(prompt: string, model: string = "llama3", format
         };
         if (format) body.format = format;
 
-        const response = await fetch("http://localhost:11434/api/generate", {
+        const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || "http://localhost:11434";
+        const response = await fetch(`${OLLAMA_URL}/api/generate`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

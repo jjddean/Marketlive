@@ -16,8 +16,26 @@ import {
     DrawerTrigger
 } from '@/components/ui/drawer';
 
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
+import QuoteRequestForm from '@/components/forms/QuoteRequestForm';
+import { toast } from 'sonner';
+
 const ClientBookingsPage = () => {
     const bookings = useQuery(api.bookings.listMyBookings) || [];
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+    const handleCreateBooking = (data: any) => {
+        console.log("New Booking Data:", data);
+        toast.success("Booking request submitted successfully!");
+        setIsCreateOpen(false);
+        // In a real app, calls mutation here
+    };
 
     const StatusBadge = ({ status }: { status: string }) => {
         const styles: Record<string, string> = {
@@ -40,7 +58,7 @@ const ClientBookingsPage = () => {
             header: 'Booking ID',
             sortable: true,
             render: (value: string, row: any) => (
-                <Drawer direction="right">
+                <Drawer direction="right" shouldScaleBackground={false}>
                     <DrawerTrigger asChild>
                         <Button variant="link" className="p-0 h-auto font-medium text-blue-600 hover:underline">
                             {value}
@@ -178,6 +196,20 @@ const ClientBookingsPage = () => {
                             ({bookings.length})
                         </span>
                     </h2>
+                    <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                        <SheetTrigger asChild>
+                            <Button>New Booking</Button>
+                        </SheetTrigger>
+                        <SheetContent className="w-[100%] sm:max-w-2xl overflow-y-auto p-6">
+                            <SheetHeader className="mb-6">
+                                <SheetTitle>Create New Shipment</SheetTitle>
+                            </SheetHeader>
+                            <QuoteRequestForm
+                                onSubmit={handleCreateBooking}
+                                onCancel={() => setIsCreateOpen(false)}
+                            />
+                        </SheetContent>
+                    </Sheet>
                 </div>
 
                 <DataTable

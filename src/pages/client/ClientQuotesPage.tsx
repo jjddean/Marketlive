@@ -168,6 +168,8 @@ const CarrierSelectButton = ({ quote, selectedCarrier }: { quote: any, selectedC
 const ClientQuotesPage = () => {
     const quotes = useQuery(api.quotes.listMyQuotes) || [];
     const [searchParams, setSearchParams] = useSearchParams();
+    const createBooking = useMutation(api.bookings.createBooking);
+    const upsertShipment = useMutation(api.shipments.upsertShipment);
 
     // Use URL params for persistence
     const viewMode = (searchParams.get('v') as any) || 'list';
@@ -195,6 +197,85 @@ const ClientQuotesPage = () => {
         if (id) params.id = id;
         if (step) params.s = step.toString();
         setSearchParams(params);
+    };
+
+    const handleQuoteBooking = async (quote: any, rate: any) => {
+        setIsSubmitting(true);
+        try {
+            const contact = quote.contactInfo || {
+                name: 'Guest User',
+                email: 'guest@example.com',
+                phone: 'N/A',
+                company: 'N/A'
+            };
+
+            const bookingRes = await createBooking({
+                quoteId: quote.quoteId,
+                carrierQuoteId: rate.carrierId || `rate_${Date.now()}`, // Fallback if no ID
+                customerDetails: {
+                    name: contact.name || 'Guest',
+                    email: contact.email || 'guest@example.com',
+                    phone: contact.phone || 'N/A',
+                    company: contact.company || 'N/A',
+                },
+                pickupDetails: {
+                    address: quote.origin || 'Origin',
+                    date: new Date().toISOString(),
+                    timeWindow: '09:00-17:00',
+                    contactPerson: contact.name || 'Guest',
+                    contactPhone: contact.phone || 'N/A',
+                },
+                deliveryDetails: {
+                    address: quote.destination || 'Destination',
+                    date: new Date(Date.now() + 5 * 86400000).toISOString(),
+                    timeWindow: '09:00-17:00',
+                    contactPerson: contact.name || 'Guest',
+                    contactPhone: contact.phone || 'N/A',
+                },
+                specialInstructions: "Standard handling"
+            });
+
+            const shipmentId = bookingRes?.bookingId || `SHP-${Date.now()}`;
+            await upsertShipment({
+                shipmentId,
+                tracking: {
+                    status: 'pending',
+                    currentLocation: {
+                        city: quote.origin || 'London',
+                        state: '',
+                        country: 'UK',
+                        coordinates: getCityCoordinates(quote.origin),
+                    },
+                    estimatedDelivery: new Date(Date.now() + 5 * 86400000).toISOString(),
+                    carrier: rate.carrierName || rate.carrier,
+                    trackingNumber: `TBA-${shipmentId}`,
+                    service: rate.serviceType || rate.service || 'Standard',
+                    shipmentDetails: {
+                        weight: quote.weight || '',
+                        dimensions: `${quote.dimensions?.length || ''}x${quote.dimensions?.width || ''}x${quote.dimensions?.height || ''}`,
+                        origin: quote.origin || '',
+                        destination: quote.destination || '',
+                        value: quote.value || '',
+                    },
+                    events: [
+                        {
+                            timestamp: new Date().toISOString(),
+                            status: 'Shipment created',
+                            location: quote.origin || 'Origin',
+                            description: `Booking confirmed with ${rate.carrier}`,
+                        },
+                    ],
+                },
+            });
+
+            toast.success(`Booking confirmed with ${rate.carrier}!`);
+            setTimeout(() => { window.location.href = '/bookings'; }, 1000);
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to create booking");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleCreateQuote = async (formData: any) => {
@@ -239,7 +320,7 @@ const ClientQuotesPage = () => {
             header: 'Rates',
             sortable: false,
             render: (value: string, row: any) => (
-                <Drawer direction="right">
+                <Drawer direction="right" shouldScaleBackground={false}>
                     <DrawerTrigger asChild>
                         <Button variant="outline" size="sm" className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50">
                             View Rates
@@ -345,7 +426,21 @@ const ClientQuotesPage = () => {
                         />
                     </div>
                 ) : viewMode === 'result' ? (
-                    <QuoteResultsView quote={activeQuote} onBack={() => setMode('list')} />
+                    <QuoteResultsView
+                        quote={activeQuote}
+                        onBack={() => setMode('list')}
+                        onBook={(rate) => {
+                            // We need to trigger the booking logic here.
+                            // Since CarrierSelectButton logic is complex and inside a component,
+                            // we will handle it by wrapping the logic or rendering a hidden CarrierSelectButton 
+                            // that we trigger? No, that's hacky.
+                            // Correct way: Lift the mutation logic up or Duplicate it for now to be safe and fast.
+                            // I will duplicate the simple mutation call for now as I can't easily extract the hook without major refactor.
+                            // Wait, I can't call hooks inside this callback.
+                            // I need to use the mutation from the parent component scope.
+                            handleQuoteBooking(activeQuote, rate);
+                        }}
+                    />
                 ) : (
                     <>
                         <div className="flex justify-between items-center mb-8">

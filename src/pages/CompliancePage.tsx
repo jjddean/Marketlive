@@ -14,13 +14,38 @@ const CompliancePage = () => {
   const pendingDocs = liveDocuments.filter(d => d.status === 'draft' || d.status === 'pending');
   const signedDocs = liveDocuments.filter(d => d.docusign?.status === 'completed' || d.status === 'approved');
 
+  const [kycStatus, setKycStatus] = React.useState<'pending' | 'verified'>('pending');
+
+  const handleDownloadTemplate = (templateName: string) => {
+    // Simulate query/download
+    import('sonner').then(({ toast }) => {
+      toast.info(`Downloading ${templateName} Template...`);
+      setTimeout(() => {
+        toast.success("Download Complete");
+      }, 1500);
+    });
+  };
+
+  const handleStartKYC = () => {
+    import('sonner').then(({ toast }) => {
+      toast.promise(new Promise((resolve) => setTimeout(resolve, 2000)), {
+        loading: 'Initializing Identity Verification...',
+        success: () => {
+          setKycStatus('verified');
+          return 'Identity Verified Successfully!';
+        },
+        error: 'Failed'
+      });
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <MediaCardHeader
         title="Compliance"
         subtitle="Regulatory Center"
         description="Manage KYC, document uploads, and trade compliance tasks."
-        backgroundImage="https://images.unsplash.com/photo-1507208773393-40d9fc9f9777?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
+        backgroundImage="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
         overlayOpacity={0.6}
         className="mb-6"
       />
@@ -28,29 +53,39 @@ const CompliancePage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Status Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center text-blue-600 mb-2">
-              <Clock className="h-5 w-5 mr-2" />
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl">
+                ⏳
+              </div>
               <h3 className="font-semibold text-gray-900">Pending Reviews</h3>
             </div>
-            <p className="text-3xl font-bold">{pendingDocs.length}</p>
-            <p className="text-sm text-gray-500 mt-1">Actions required to proceed</p>
+            <p className="text-3xl font-bold pl-1">{pendingDocs.length}</p>
+            <p className="text-sm text-gray-500 mt-1 pl-1">Actions required to proceed</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center text-green-600 mb-2">
-              <CheckCircle className="h-5 w-5 mr-2" />
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-xl">
+                ✅
+              </div>
               <h3 className="font-semibold text-gray-900">Verified Docs</h3>
             </div>
-            <p className="text-3xl font-bold">{signedDocs.length}</p>
-            <p className="text-sm text-gray-500 mt-1">Cleared and validated</p>
+            <p className="text-3xl font-bold pl-1">{signedDocs.length}</p>
+            <p className="text-sm text-gray-500 mt-1 pl-1">Cleared and validated</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center text-indigo-600 mb-2">
-              <FileBadge className="h-5 w-5 mr-2" />
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${kycStatus === 'verified' ? 'bg-green-50' : 'bg-indigo-50'}`}>
+                {kycStatus === 'verified' ? '✅' : '🛡️'}
+              </div>
               <h3 className="font-semibold text-gray-900">KYC Status</h3>
             </div>
-            <p className="text-xl font-bold text-indigo-600">IN PROGRESS</p>
-            <p className="text-sm text-gray-500 mt-1">Expires in 184 days</p>
+            <p className={`text-xl font-bold pl-1 ${kycStatus === 'verified' ? 'text-green-600' : 'text-indigo-600'}`}>
+              {kycStatus === 'verified' ? 'VERIFIED' : 'IN PROGRESS'}
+            </p>
+            <p className="text-sm text-gray-500 mt-1 pl-1">
+              {kycStatus === 'verified' ? 'Valid for 365 days' : 'Expires in 184 days'}
+            </p>
           </div>
         </div>
 
@@ -65,14 +100,23 @@ const CompliancePage = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {[
-                  { name: 'Commercial Invoice', icon: FileText, color: 'text-blue-600' },
-                  { name: 'Bill of Lading', icon: FileBadge, color: 'text-indigo-600' },
-                  { name: 'Certificate of Origin', icon: FileBadge, color: 'text-green-600' },
-                  { name: 'Dangerous Goods', icon: FileWarning, color: 'text-amber-600' }
+                  { name: 'Commercial Invoice', icon: '📄', description: 'Standard customs value declaration.' },
+                  { name: 'Bill of Lading', icon: '🚢', description: 'Legal receipt of freight services.' },
+                  { name: 'Certificate of Origin', icon: '🌍', description: 'Validate goods manufacturing source.' },
+                  { name: 'Dangerous Goods', icon: '⚠️', description: 'Hazardous materials declaration.' }
                 ].map((item, idx) => (
-                  <div key={idx} className="rounded-md border p-4 hover:bg-gray-50 flex items-center gap-3 cursor-pointer transition-colors">
-                    <item.icon className={`h-5 w-5 ${item.color}`} />
-                    <span className="font-medium text-gray-700">{item.name}</span>
+                  <div
+                    key={idx}
+                    onClick={() => handleDownloadTemplate(item.name)}
+                    className="rounded-lg border p-4 hover:bg-gray-50 flex items-start gap-4 cursor-pointer transition-all hover:shadow-md group"
+                  >
+                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                      {item.icon}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-900 block">{item.name}</span>
+                      <span className="text-xs text-gray-500">{item.description}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -109,7 +153,10 @@ const CompliancePage = () => {
               <p className="text-blue-100 text-sm mb-4">
                 Keep your documentation up to date to avoid delays at customs.
               </p>
-              <Button className="w-full bg-white text-blue-600 hover:bg-blue-50 font-semibold shadow-sm">
+              <Button
+                className="w-full bg-white text-blue-600 hover:bg-blue-50 font-semibold shadow-sm"
+                onClick={handleStartKYC}
+              >
                 Start KYC Process
               </Button>
             </div>

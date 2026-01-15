@@ -312,21 +312,30 @@ const DocumentsPage = () => {
                         <a ref={downloadRef} style={{ display: 'none' }} />
 
                         <Button onClick={() => setCreateOpen(true)}>
-                            <FileText className="h-4 w-4 mr-2" />
-                            Create Document
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Invoice/List
                         </Button>
                     </div>
                 </div>
 
                 {/* Data Table */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <DataTable
-                        data={tableData}
-                        columns={documentColumns}
-                        searchPlaceholder="Search documents..."
-                        rowsPerPage={10}
-                        className="border-0 shadow-none"
-                    />
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden min-h-[400px]">
+                    {liveDocuments === undefined ? (
+                        <div className="p-4 space-y-4 animate-pulse">
+                            <div className="h-10 bg-gray-100 rounded w-full mb-4" />
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div key={i} className="h-12 bg-gray-50 rounded w-full border-b border-gray-100" />
+                            ))}
+                        </div>
+                    ) : (
+                        <DataTable
+                            data={tableData}
+                            columns={documentColumns}
+                            searchPlaceholder="Search documents..."
+                            rowsPerPage={10}
+                            className="border-0 shadow-none"
+                        />
+                    )}
                 </div>
 
             </div>
@@ -383,7 +392,7 @@ const DocumentsPage = () => {
                 </SheetContent>
             </Sheet>
 
-            <Drawer open={sendOpen} onOpenChange={setSendOpen}>
+            <Drawer open={sendOpen} onOpenChange={setSendOpen} shouldScaleBackground={false}>
                 <DrawerContent className="max-w-md mx-auto">
                     <DrawerHeader>
                         <DrawerTitle>Send for E-Signature</DrawerTitle>
@@ -415,8 +424,8 @@ const DocumentsPage = () => {
 // Reuse CreateDocumentDrawer (copy paste full implementation or import if extracted, I'll allow copy here for safety)
 function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData }: any) {
     const defaultState = {
-        type: 'bill_of_lading',
-        documentNumber: `BL-${Date.now().toString().slice(-6)}`,
+        type: 'commercial_invoice',
+        documentNumber: `CI-${Date.now().toString().slice(-6)}`,
         issueDate: new Date().toISOString().split('T')[0],
         shipperName: '', shipperAddress: '',
         consigneeName: '', consigneeAddress: '',
@@ -432,7 +441,7 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData 
         if (initialData && initialData.data) {
             const d = initialData.data;
             setFormData({
-                type: initialData.type || 'bill_of_lading',
+                type: initialData.type || 'commercial_invoice',
                 documentNumber: `AI-${Date.now().toString().slice(-6)}`, // New number
                 issueDate: new Date().toISOString().split('T')[0],
                 shipperName: d.shipper?.name || '',
@@ -450,7 +459,7 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData 
             // Reset if opening without data (optional, but good UX)
             setFormData(prev => ({
                 ...defaultState,
-                documentNumber: `BL-${Date.now().toString().slice(-6)}`
+                documentNumber: `CI-${Date.now().toString().slice(-6)}`
             }));
         }
     }, [initialData, open]);
@@ -483,7 +492,7 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData 
                 },
                 status: 'draft'
             });
-            toast.success("Document created successfully");
+            toast.success("Document Uploaded for Review");
             onOpenChange(false);
         } catch (e: any) {
             toast.error(`Error: ${e.message}`);
@@ -497,10 +506,10 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData 
     };
 
     return (
-        <Drawer open={open} onOpenChange={onOpenChange}>
+        <Drawer open={open} onOpenChange={onOpenChange} shouldScaleBackground={false}>
             <DrawerContent className="max-w-4xl mx-auto h-[85vh]">
                 <DrawerHeader>
-                    <DrawerTitle>Create New Document</DrawerTitle>
+                    <DrawerTitle>Upload Commercial Invoice</DrawerTitle>
                 </DrawerHeader>
                 <div className="px-6 py-4 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -508,10 +517,12 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData 
                             <Label>Type</Label>
                             <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                                 value={formData.type} onChange={e => handleChange('type', e.target.value)}>
-                                <option value="bill_of_lading">Bill of Lading</option>
                                 <option value="commercial_invoice">Commercial Invoice</option>
-                                <option value="air_waybill">Air Waybill</option>
+                                <option value="packing_list">Packing List</option>
                             </select>
+                            <div className="p-3 bg-blue-50 text-blue-700 text-xs rounded border border-blue-100">
+                                ℹ️ Note: Bill of Lading and Air Waybills are issued by the Carrier/Admin upon booking confirmation. You cannot create them manually here.
+                            </div>
                             <Label>Number</Label><Input value={formData.documentNumber} onChange={e => handleChange('documentNumber', e.target.value)} />
                             <Label>Shipper</Label><Input value={formData.shipperName} onChange={e => handleChange('shipperName', e.target.value)} />
                         </div>
@@ -524,7 +535,7 @@ function CreateDocumentDrawer({ open, onOpenChange, createDocument, initialData 
                     </div>
                 </div>
                 <DrawerFooter>
-                    <Button onClick={handleSubmit} disabled={loading}>Create</Button>
+                    <Button onClick={handleSubmit} disabled={loading}>Submit for Processing</Button>
                     <DrawerClose asChild><Button variant="outline">Cancel</Button></DrawerClose>
                 </DrawerFooter>
             </DrawerContent>
@@ -543,6 +554,8 @@ function SmartUploadButton({ onParse }: { onParse: (data: any) => void }) {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        console.log("File selected:", file.name);
+        toast.info("Starting Smart Upload..."); // DEBUG: Explicit start message
         setAnalyzing(true);
         toast.info("🤖 AI is reading your document...");
 
@@ -559,9 +572,10 @@ function SmartUploadButton({ onParse }: { onParse: (data: any) => void }) {
                 toast.success("Processed by Local Llama 3!");
                 onParse(result);
                 return;
-            } catch (ollamaErr) {
+            } catch (ollamaErr: any) {
                 console.warn("Ollama failed, falling back to basic mock:", ollamaErr);
-                toast.dismiss('ollama-load');
+                // toast.error(`Ollama Error: ${ollamaErr.message}`); // SILENCED
+                toast.dismiss('ollama-load'); // <-- Restored this so it cleans up
                 // Proceed to fallback
             }
 
@@ -576,8 +590,8 @@ function SmartUploadButton({ onParse }: { onParse: (data: any) => void }) {
             onParse(result);
             toast.success("Processed by Cloud AI (Mock)");
 
-        } catch (err) {
-            toast.error("AI Analysis failed completely.");
+        } catch (err: any) {
+            toast.error(`Cloud AI Failed: ${err.message}`);
             console.error(err);
         } finally {
             setAnalyzing(false);

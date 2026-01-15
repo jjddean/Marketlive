@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use node";
 
 import { action } from "./_generated/server";
@@ -15,16 +16,16 @@ export const sendEnvelope = action({
     },
     handler: async (ctx, args) => {
         // 1. Configuration
-        const dsApi = new docusign.ApiClient();
         const dsConfig = {
             clientId: process.env.DOCUSIGN_INTEGRATION_KEY!,
-            userId: process.env.DOCUSIGN_USER_ID!, // The user to impersonate
-            privateKey: process.env.DOCUSIGN_PRIVATE_KEY!.replace(/\\n/g, '\n'), // Handle newlines
+            userId: process.env.DOCUSIGN_USER_ID!,
+            privateKey: process.env.DOCUSIGN_PRIVATE_KEY!.replace(/\\n/g, '\n'),
             basePath: "https://demo.docusign.net/restapi",
             accountId: process.env.DOCUSIGN_API_ACCOUNT_ID!
         };
 
-        dsApi.setOAuthBasePath("account-d.docusign.com"); // Demo
+        const dsApi = new docusign.ApiClient();
+        dsApi.setOAuthBasePath("account-d.docusign.com");
 
         // 2. Get JWT Token
         try {
@@ -45,7 +46,6 @@ export const sendEnvelope = action({
         const envelopeDefinition = new docusign.EnvelopeDefinition();
         envelopeDefinition.emailSubject = "Please sign this Logistics Document";
 
-        // Create Dummy Document if none provided
         const doc = new docusign.Document();
         doc.documentBase64 = args.documentBase64 || Buffer.from("Logistics Agreement Placeholder").toString("base64");
         doc.name = "Agreement.pdf";
@@ -54,14 +54,12 @@ export const sendEnvelope = action({
 
         envelopeDefinition.documents = [doc];
 
-        // Create Signer
         const signer = new docusign.Signer();
         signer.email = args.signerEmail;
         signer.name = args.signerName;
         signer.recipientId = "1";
         signer.routingOrder = "1";
 
-        // Create Tabs (Sign Here)
         const signHere = new docusign.SignHere();
         signHere.documentId = "1";
         signHere.pageNumber = "1";

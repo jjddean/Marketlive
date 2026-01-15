@@ -71,7 +71,7 @@ export const createBooking = mutation({
       bookingId,
       quoteId: args.quoteId,
       carrierQuoteId: args.carrierQuoteId,
-      status: "confirmed",
+      status: "pending",
       customerDetails: args.customerDetails,
       pickupDetails: args.pickupDetails,
       deliveryDetails: args.deliveryDetails,

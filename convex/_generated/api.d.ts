@@ -12,6 +12,7 @@ import type * as ai from "../ai.js";
 import type * as bookings from "../bookings.js";
 import type * as debug_email from "../debug_email.js";
 import type * as documents from "../documents.js";
+import type * as docusign from "../docusign.js";
 import type * as email from "../email.js";
 import type * as geo from "../geo.js";
 import type * as http from "../http.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   bookings: typeof bookings;
   debug_email: typeof debug_email;
   documents: typeof documents;
+  docusign: typeof docusign;
   email: typeof email;
   geo: typeof geo;
   http: typeof http;

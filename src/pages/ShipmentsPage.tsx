@@ -4,7 +4,7 @@ import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import Footer from '@/components/layout/Footer';
 import AdvancedSearch from '@/components/ui/advanced-search';
-import RealTimeTracker from '@/components/ui/real-time-tracker';
+import { LiveVesselMap } from '@/components/ui/live-vessel-map';
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Sparkles, Mail } from "lucide-react";
@@ -390,15 +390,30 @@ const ShipmentsPage = () => {
 
         {/* Real-Time Tracking for Active Shipments */}
         {activeTab === 'active' && (
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="mt-8 grid grid-cols-1 gap-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <span className="relative flex h-3 w-3 mr-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              Live Fleet Tracking
+            </h3>
             {(liveData && liveData.filter((s: any) => s.status !== 'Delivered').length > 0) ? (
               liveData.filter((s: any) => s.status !== 'Delivered').slice(0, 2).map((s: any) => (
-                <RealTimeTracker key={s.shipmentId} shipmentId={s.shipmentId} />
+                <LiveVesselMap
+                  key={s.shipmentId}
+                  shipmentId={s.shipmentId}
+                  origin={s.shipmentDetails?.origin || 'Unknown'}
+                  destination={s.shipmentDetails?.destination || 'Unknown'}
+                  progress={Math.floor(Math.random() * 60) + 20} // Mock progress for live feel
+                />
               ))
             ) : (
               <>
-                <RealTimeTracker shipmentId="SH-2024-001" />
-                <RealTimeTracker shipmentId="SH-2024-002" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <LiveVesselMap shipmentId="SH-2024-001" origin="London, UK" destination="Hamburg, DE" progress={72} />
+                  <LiveVesselMap shipmentId="SH-2024-002" origin="Shanghai, CN" destination="Felixstowe, UK" progress={35} />
+                </div>
               </>
             )}
           </div>
@@ -409,7 +424,7 @@ const ShipmentsPage = () => {
 
       {/* Shipment Details & Risk Analysis Sheet */}
       <Sheet open={!!selectedShipment} onOpenChange={(open) => !open && setSelectedShipment(null)}>
-        <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto p-6">
           <SheetHeader>
             <SheetTitle>Shipment Analysis</SheetTitle>
             <SheetDescription>Real-time predictive insights for {selectedShipment?.id}</SheetDescription>

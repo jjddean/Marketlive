@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import LiveRateComparison from './LiveRateComparison';
-import { type RateRequest } from '@/services/carriers';
+import { type RateRequest, type CarrierRate } from '@/services/carriers';
+import { CO2Badge } from '@/components/ui/co2-badge';
+import { LandedCostTool } from '@/components/ui/landed-cost-tool';
 
 interface QuoteResultsViewProps {
     quote: any;
     onBack: () => void;
+    onBook?: (rate: any) => void;
 }
 
-const QuoteResultsView: React.FC<QuoteResultsViewProps> = ({ quote, onBack }) => {
+const QuoteResultsView: React.FC<QuoteResultsViewProps> = ({ quote, onBack, onBook }) => {
+    const [selectedRate, setSelectedRate] = useState<CarrierRate | null>(null);
+
     if (!quote) return <div className="p-8 text-center text-gray-500">Loading quote results...</div>;
 
     const rateRequest: RateRequest = {
@@ -58,7 +63,46 @@ const QuoteResultsView: React.FC<QuoteResultsViewProps> = ({ quote, onBack }) =>
             <LiveRateComparison
                 rateRequest={rateRequest}
                 className="shadow-xl border-gray-100 rounded-2xl"
+                onRateSelect={setSelectedRate}
+                onBook={(rate) => {
+                    if (onBook) {
+                        onBook(rate);
+                    } else {
+                        // Guest mode behavior (Homepage)
+                        alert(`Please Sign In to book this rate with ${rate.carrier}.`);
+                    }
+                }}
             />
+
+            {selectedRate && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 transition-all">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-green-600 text-lg">✅</span>
+                            <div>
+                                <h4 className="text-sm font-medium text-green-900">Rate Selected</h4>
+                                <p className="text-sm text-green-700">
+                                    {selectedRate.carrier} {selectedRate.service}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="font-bold text-green-800">
+                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(selectedRate.cost)}
+                                    </span>
+                                    <span className="text-xs text-green-600">({selectedRate.transit_time})</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Premium Features Widget */}
+                        <div className="flex flex-col items-end gap-2">
+                            <CO2Badge kg={Math.round((parseFloat(quote.weight) || 100) * 0.85)} />
+                            <div className="flex items-center gap-2">
+                                <LandedCostTool baseFreight={selectedRate.cost} currency="USD" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

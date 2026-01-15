@@ -240,3 +240,21 @@ export const getSharedDocument = query({
     return doc;
   },
 });
+
+export const listDocuments = query({
+  args: {
+    status: v.optional(v.string()),
+    type: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let docs = await ctx.db.query("documents").order("desc").collect();
+
+    if (args.status) {
+      docs = docs.filter(d => d.status === args.status);
+    }
+    if (args.type) {
+      docs = docs.filter(d => d.type === args.type);
+    }
+    return docs;
+  },
+});

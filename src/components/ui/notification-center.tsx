@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +23,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>('all');
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Mock initial notifications
@@ -34,7 +36,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
         priority: 'high',
         timestamp: '2024-08-01T14:30:00Z',
         read: false,
-        actionUrl: '/shipments/SH-2024-145',
+        actionUrl: '/shipments',
         actionText: 'View Details'
       },
       {
@@ -45,7 +47,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
         priority: 'medium',
         timestamp: '2024-08-01T13:15:00Z',
         read: false,
-        actionUrl: '/payments/INV-2024-089',
+        actionUrl: '/payments',
         actionText: 'View Invoice'
       },
       {
@@ -56,7 +58,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
         priority: 'urgent',
         timestamp: '2024-08-01T12:45:00Z',
         read: false,
-        actionUrl: '/compliance/SH-2024-156',
+        actionUrl: '/compliance',
         actionText: 'Upload Document'
       },
       {
@@ -67,7 +69,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
         priority: 'low',
         timestamp: '2024-08-01T11:20:00Z',
         read: true,
-        actionUrl: '/shipments/SH-2024-132',
+        actionUrl: '/shipments',
         actionText: 'Track Shipment'
       },
       {
@@ -164,8 +166,33 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
     return date.toLocaleDateString();
   };
 
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleNotificationClick = (notification: Notification) => {
+    markAsRead(notification.id);
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+      setIsOpen(false);
+    }
+  };
+
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative", className)} ref={containerRef}>
       {/* Notification Bell */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -238,7 +265,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
           )}
 
           {/* Notifications List */}
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[350px] overflow-y-auto">
             {filteredNotifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <div className="text-4xl mb-2">📭</div>
@@ -253,7 +280,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
                     getPriorityColor(notification.priority),
                     !notification.read && "bg-blue-50"
                   )}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="text-lg">{getNotificationIcon(notification.type)}</div>
@@ -273,7 +300,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
 
                       {notification.actionUrl && (
                         <div className="mt-2">
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNotificationClick(notification);
+                            }}
+                          >
                             {notification.actionText || 'View'}
                           </Button>
                         </div>

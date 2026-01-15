@@ -6,12 +6,14 @@ import { cn } from '@/lib/utils';
 interface LiveRateComparisonProps {
   rateRequest: RateRequest;
   onRateSelect?: (rate: CarrierRate) => void;
+  onBook?: (rate: CarrierRate) => void;
   className?: string;
 }
 
 const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
   rateRequest,
   onRateSelect,
+  onBook,
   className
 }) => {
   const [rates, setRates] = useState<CarrierRate[]>([]);
@@ -181,7 +183,14 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
                       <div className="text-sm text-gray-600">
                         <span className="font-medium">Selected Rate:</span> Best value for your shipment
                       </div>
-                      <Button size="sm">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBook?.(rate);
+                        }}
+                      >
                         Book This Rate
                       </Button>
                     </div>

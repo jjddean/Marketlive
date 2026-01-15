@@ -18,7 +18,7 @@ interface Message {
 export function AIAssistant() {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: 'Hello! I am your FreightOps AI. Ask me about shipments, metrics, or documents.' }
+        { role: 'assistant', content: 'Hello! I am ur freight assistant. Ask me about shipments, metrics, or documents.' }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -67,42 +67,51 @@ User asks: "${userMsg}"
 Answer briefly and professionally.
 `;
 
-            const response = await askOllama(contextPrompt, "llama3");
+            // Pass undefined for format to allow free text (not JSON)
+            const response = await askOllama(contextPrompt, "llama3:8b", undefined);
 
-            // If response is JSON (from our previous setup), parse it? 
-            // Our askOllama helper might be forcing JSON format in the previous file.
-            // Let's check askOllama implementation... it sets "format: json".
-            // If the user asks a chatting question, JSON format is annoying.
-            // We should modify askOllama to accept format options or handle raw text.
-            // BUT for now, let's assume it returns text if we don't strictly enforce prompt structure. 
-            // ACTUALLY, the previous implementation enforced JSON. 
-            // We might need to adjust askOllama or handle the JSON response.
-
-            // Hack: Try to parse, or just show raw
             let displayText = response;
+            // Attempt to clean up if it still returns JSON by accident
             try {
                 const parsed = JSON.parse(response);
                 if (parsed.response) displayText = parsed.response;
-                // If it's the shipping doc structure
-                if (parsed.data) displayText = "I've generated a document structure: " + JSON.stringify(parsed.data).substring(0, 50) + "...";
             } catch (e) { }
 
             setMessages(prev => [...prev, { role: 'assistant', content: displayText }]);
 
-        } catch (error) {
-            setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error connecting to AI." }]);
+        } catch (error: any) {
+            console.error("AI Error Details:", error);
+            setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error.message || "Connection failed"}. Check console (F12) for details.` }]);
         } finally {
             setLoading(false);
         }
     };
 
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
+
     return (
-        <div className="fixed bottom-6 right-6 z-[9999]">
+        <div className="fixed bottom-6 right-6 z-[9999]" ref={containerRef}>
             {isOpen ? (
-                <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-80 md:w-96 flex flex-col h-[500px] transition-all duration-200 ease-in-out">
+                <div className="bg-white rounded-xl shadow-2xl w-80 md:w-96 flex flex-col h-[500px] transition-all duration-200 ease-in-out">
 
                     {/* Header */}
-                    <div className="p-4 border-b bg-[#003057] text-white rounded-t-xl flex justify-between items-center">
+                    <div className="p-4 bg-[#003057] text-white rounded-t-xl flex justify-between items-center">
                         <div className="flex items-center space-x-2">
                             <Sparkles className="h-5 w-5" />
                             <span className="font-semibold">Freight Assistant</span>
@@ -142,7 +151,7 @@ Answer briefly and professionally.
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
                                 placeholder="Ask about shipments..."
-                                className="flex-1"
+                                className="flex-1 border-gray-300 focus:border-[#003057]"
                                 disabled={loading}
                             />
                             <Button type="submit" size="icon" className="bg-[#003057] hover:opacity-90" disabled={loading || !input.trim()}>
