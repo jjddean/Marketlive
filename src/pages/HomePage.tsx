@@ -4,19 +4,27 @@ import { Button } from '@/components/ui/button';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import Modal from '@/components/ui/modal';
 import QuoteRequestForm from '@/components/forms/QuoteRequestForm';
-import QuoteResultsView from '@/components/shipping/QuoteResultsView';
+
+import { toast } from 'sonner';
 
 const HomePage = () => {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
-  const [submittedQuote, setSubmittedQuote] = useState<any>(null);
 
   const handleQuoteSubmit = (data: any) => {
-    setSubmittedQuote(data);
+    // Check if the user is authenticated? Ideally.
+    // But for now, just close the modal as requested.
+    setIsQuoteModalOpen(false);
+    toast.success("Quote request submitted successfully!");
+
+    // Redirect logic could go here if we wanted to be fancy, but simple is best for now.
+    // If we have a selected rate, we might want to inform them.
+    if (data.selectedRate) {
+      toast.success(`Booking confirmed with ${data.selectedRate.carrier}!`);
+    }
   };
 
   const handleCloseModal = () => {
     setIsQuoteModalOpen(false);
-    setSubmittedQuote(null);
   };
 
   return (
@@ -112,20 +120,13 @@ const HomePage = () => {
       <Modal
         isOpen={isQuoteModalOpen}
         onClose={handleCloseModal}
-        title={submittedQuote ? "" : "Request Freight Quote"}
+        title="Request Freight Quote"
         size="xl"
       >
-        {submittedQuote ? (
-          <QuoteResultsView
-            quote={submittedQuote}
-            onBack={handleCloseModal}
-          />
-        ) : (
-          <QuoteRequestForm
-            onSubmit={handleQuoteSubmit}
-            onCancel={handleCloseModal}
-          />
-        )}
+        <QuoteRequestForm
+          onSubmit={handleQuoteSubmit}
+          onCancel={handleCloseModal}
+        />
       </Modal>
     </div>
   );

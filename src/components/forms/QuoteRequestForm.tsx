@@ -55,6 +55,45 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
   const [selectedRate, setSelectedRate] = useState<CarrierRate | null>(null);
   const totalSteps = 5; // Added rate comparison step
 
+  const rateRequest = React.useMemo<RateRequest>(() => ({
+    origin: {
+      street1: '123 Business St',
+      city: formData.origin.split(', ')[0] || 'London',
+      state: '',
+      zip: 'SW1A 1AA',
+      country: 'GB',
+    },
+    destination: {
+      street1: '456 Commerce Ave',
+      city: formData.destination.split(', ')[0] || 'Hamburg',
+      state: '',
+      zip: '20095',
+      country: formData.destination.includes('DE') ? 'DE' :
+        formData.destination.includes('US') ? 'US' :
+          formData.destination.includes('CN') ? 'CN' : 'DE',
+    },
+    parcel: {
+      length: parseFloat(formData.dimensions.length) || 40,
+      width: parseFloat(formData.dimensions.width) || 30,
+      height: parseFloat(formData.dimensions.height) || 20,
+      distance_unit: 'cm',
+      weight: parseFloat(formData.weight) || 100,
+      mass_unit: 'kg',
+    },
+  }), [formData.origin, formData.destination, formData.dimensions, formData.weight]);
+
+  const handleRateSelect = (rate: CarrierRate) => {
+    setSelectedRate(rate);
+  };
+
+  const handleBookRate = React.useCallback((rate: CarrierRate) => {
+    setSelectedRate(rate);
+    onSubmit({
+      ...formData,
+      selectedRate: rate
+    });
+  }, [formData, onSubmit]);
+
   const handleInputChange = (field: string, value: string) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
@@ -363,36 +402,8 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
         );
 
       case 5:
-        // Rate Comparison Step
-        const rateRequest: RateRequest = {
-          origin: {
-            street1: '123 Business St',
-            city: formData.origin.split(', ')[0] || 'London',
-            state: '',
-            zip: 'SW1A 1AA',
-            country: 'GB',
-          },
-          destination: {
-            street1: '456 Commerce Ave',
-            city: formData.destination.split(', ')[0] || 'Hamburg',
-            state: '',
-            zip: '20095',
-            country: formData.destination.includes('DE') ? 'DE' :
-              formData.destination.includes('US') ? 'US' :
-                formData.destination.includes('CN') ? 'CN' : 'DE',
-          },
-          parcel: {
-            length: parseFloat(formData.dimensions.length) || 40,
-            width: parseFloat(formData.dimensions.width) || 30,
-            height: parseFloat(formData.dimensions.height) || 20,
-            distance_unit: 'cm',
-            weight: parseFloat(formData.weight) || 100,
-            mass_unit: 'kg',
-          },
-        };
-
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Live Shipping Rates</h3>
             <p className="text-sm text-gray-600 mb-6">
               Compare live rates from multiple carriers for your shipment.
@@ -400,43 +411,9 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
 
             <LiveRateComparison
               rateRequest={rateRequest}
-              onRateSelect={setSelectedRate}
-              onBook={(rate) => {
-                setSelectedRate(rate);
-                onSubmit({
-                  ...formData,
-                  selectedRate: rate
-                });
-              }}
+              onRateSelect={handleRateSelect}
+              onBook={handleBookRate}
             />
-
-            {selectedRate && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-green-600 text-lg">✅</span>
-                    <div>
-                      <h4 className="text-sm font-medium text-green-900">Rate Selected</h4>
-                      <p className="text-sm text-green-700">
-                        {selectedRate.carrier} {selectedRate.service}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-bold text-green-800">${selectedRate.cost.toFixed(2)}</span>
-                        <span className="text-xs text-green-600">({selectedRate.transit_time})</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Premium Features Widget */}
-                  <div className="flex flex-col items-end gap-2">
-                    <CO2Badge kg={Math.round((parseFloat(formData.weight) || 100) * 0.85)} />
-                    <div className="flex items-center gap-2">
-                      <LandedCostTool baseFreight={selectedRate.cost} currency="USD" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         );
 
@@ -485,7 +462,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
             <Button type="button" onClick={nextStep}>
               Next
             </Button>
-          ) : (
+          ) : currentStep === totalSteps ? null : (
             <Button type="submit">
               Submit Quote Request
             </Button>

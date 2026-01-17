@@ -4,7 +4,7 @@ import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import Footer from '@/components/layout/Footer';
-import { MapboxShipmentMap } from '@/components/ui/MapboxShipmentMap';
+import { ShipmentMap } from '@/components/ui/ShipmentMap';
 import MobileDashboard from '@/components/mobile/MobileDashboard';
 
 import { useQuery, useMutation } from "convex/react";
@@ -273,7 +273,7 @@ const DashboardPage = () => {
           <div className="mt-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Global Shipment Tracking</h2>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" style={{ height: '500px' }}>
-              <MapboxShipmentMap className="w-full h-full" />
+              <ShipmentMap className="w-full h-full" />
             </div>
           </div>
         </div>

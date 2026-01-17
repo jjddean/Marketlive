@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { getAllCarrierRates, type CarrierRate, type RateRequest } from '@/services/carriers';
+import { LandedCostTool } from '@/components/ui/landed-cost-tool';
 import { cn } from '@/lib/utils';
 
 interface LiveRateComparisonProps {
@@ -25,7 +26,8 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
     if (rateRequest.origin.city && rateRequest.destination.city) {
       fetchRates();
     }
-  }, [rateRequest]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(rateRequest)]);
 
   const fetchRates = async () => {
     setLoading(true);
@@ -86,7 +88,8 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
     return `${symbol}${amount.toFixed(2)}`;
   };
 
-  if (loading) {
+  // Only show full loading state if we have no rates yet
+  if (loading && rates.length === 0) {
     return (
       <div className={cn("bg-white rounded-lg border border-gray-200 p-6", className)}>
         <div className="flex items-center justify-center py-8">
@@ -141,63 +144,74 @@ const LiveRateComparison: React.FC<LiveRateComparisonProps> = ({
           </div>
         ) : (
           <div className="space-y-4">
-            {rates.map((rate, index) => (
-              <div
-                key={`${rate.carrier}-${rate.service}-${index}`}
-                className={cn(
-                  "border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md",
-                  selectedRate === rate
-                    ? "border-primary bg-primary/5 shadow-md"
-                    : "border-gray-200 hover:border-gray-300"
-                )}
-                onClick={() => handleRateSelect(rate)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-2xl">{getCarrierLogo(rate.carrier)}</div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-gray-900">{rate.carrier}</h4>
-                        {getProviderBadge(rate.provider)}
+            {rates.map((rate, index) => {
+              const isSelected = selectedRate?.carrier === rate.carrier && selectedRate?.service === rate.service; // Simple uniqueness check
+
+              return (
+                <div
+                  key={`${rate.carrier}-${rate.service}-${index}`}
+                  className={cn(
+                    "border rounded-lg p-4 cursor-pointer transition-all",
+                    isSelected
+                      ? "bg-gray-50 border-blue-600 shadow-sm"
+                      : "bg-white border-gray-200 hover:border-gray-300"
+                  )}
+                  onClick={() => handleRateSelect(rate)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="text-2xl">{getCarrierLogo(rate.carrier)}</div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">{rate.carrier}</h4>
+                          {getProviderBadge(rate.provider)}
+                        </div>
+                        <p className="text-gray-600 text-xs">{rate.service}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Transit: {rate.transit_time}</p>
                       </div>
-                      <p className="text-sm text-gray-600">{rate.service}</p>
-                      <p className="text-xs text-gray-500">Transit: {rate.transit_time}</p>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-gray-900">
+                        {formatCurrency(rate.cost, rate.currency)}
+                      </div>
+                      {rate.delivery_date && (
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          Est: {new Date(rate.delivery_date).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-gray-900">
-                      {formatCurrency(rate.cost, rate.currency)}
+                  {isSelected && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          {/* CO2 Badge moved here */}
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100">
+                            🌿 {rate.co2_emission ? `${rate.co2_emission} kg CO₂e` : "85 kg CO₂e"}
+                          </span>
+
+                          {/* Calculator Link */}
+                          <LandedCostTool baseFreight={rate.cost} currency={rate.currency} />
+                        </div>
+
+                        <Button
+                          type="button"
+                          className="w-full sm:w-auto px-4 py-1.5 h-8 text-xs bg-primary hover:bg-primary/90 text-white font-medium rounded shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onBook?.(rate);
+                          }}
+                        >
+                          Book This Rate
+                        </Button>
+                      </div>
                     </div>
-                    {rate.delivery_date && (
-                      <p className="text-xs text-gray-500">
-                        Delivery: {new Date(rate.delivery_date).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
-
-                {selectedRate === rate && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Selected Rate:</span> Best value for your shipment
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onBook?.(rate);
-                        }}
-                      >
-                        Book This Rate
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

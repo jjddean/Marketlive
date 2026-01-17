@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import dns from 'dns'
+
+// Force IPv4 ordering to fix localhost issues on Windows
+dns.setDefaultResultOrder('ipv4first')
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -13,6 +17,6 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    host: true,
+    host: true, // Listen on all network interfaces
   },
 })

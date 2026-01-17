@@ -61,11 +61,16 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto outline-none focus:outline-none">
       <div
-        className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0"
-        onClick={handleOverlayClick}
+        className="flex min-h-screen items-start justify-center p-4 text-center sm:p-0 pt-10"
       >
         {/* Overlay */}
-        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" />
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (closeOnOverlayClick) onClose();
+          }}
+        />
 
         {/* Modal */}
         <div className={cn(

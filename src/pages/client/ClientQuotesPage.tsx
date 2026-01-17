@@ -299,12 +299,13 @@ const ClientQuotesPage = () => {
 
             setActiveQuote({
                 ...requestData,
+                selectedRate: formData.selectedRate,
                 quoteId: result.quoteId,
                 status: "success",
                 quotes: result.quotes || []
             });
 
-            setMode('result', result.quoteId);
+            setMode('list');
             toast.success("Quote generated successfully!");
         } catch (error) {
             console.error('Error creating quote:', error);
@@ -425,22 +426,6 @@ const ClientQuotesPage = () => {
                             onStepChange={(step) => setMode('create', undefined, step)}
                         />
                     </div>
-                ) : viewMode === 'result' ? (
-                    <QuoteResultsView
-                        quote={activeQuote}
-                        onBack={() => setMode('list')}
-                        onBook={(rate) => {
-                            // We need to trigger the booking logic here.
-                            // Since CarrierSelectButton logic is complex and inside a component,
-                            // we will handle it by wrapping the logic or rendering a hidden CarrierSelectButton 
-                            // that we trigger? No, that's hacky.
-                            // Correct way: Lift the mutation logic up or Duplicate it for now to be safe and fast.
-                            // I will duplicate the simple mutation call for now as I can't easily extract the hook without major refactor.
-                            // Wait, I can't call hooks inside this callback.
-                            // I need to use the mutation from the parent component scope.
-                            handleQuoteBooking(activeQuote, rate);
-                        }}
-                    />
                 ) : (
                     <>
                         <div className="flex justify-between items-center mb-8">

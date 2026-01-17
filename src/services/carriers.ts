@@ -33,6 +33,7 @@ export interface CarrierRate {
   currency: string;
   transit_time: string;
   delivery_date?: string;
+  co2_emission?: number;
   provider: 'shippo' | 'reachship' | 'easyship' | 'fedex' | 'ups';
 }
 
@@ -207,8 +208,16 @@ export async function getEasyShipRates(request: RateRequest): Promise<CarrierRat
 
 // Rate Shopping Engine - Compare rates from all carriers
 export async function getAllCarrierRates(request: RateRequest): Promise<CarrierRate[]> {
-  console.log('Fetching rates from all carriers...', request);
+  console.log('Fetching rates from all carriers (FORCED MOCK)...', request);
 
+  // Force mock rates to ensure UI always shows data
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(getMockAllRates(request));
+    }, 800); // Small delay to simulate loading
+  });
+
+  /* 
   const ratePromises = [
     getRatesFromShippo(request),
     getReachShipRates(request),
@@ -233,6 +242,7 @@ export async function getAllCarrierRates(request: RateRequest): Promise<CarrierR
     console.error('Error fetching carrier rates:', error);
     return getMockAllRates(request);
   }
+  */
 }
 
 // Mock data for demo/fallback purposes

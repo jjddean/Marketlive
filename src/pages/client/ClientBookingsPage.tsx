@@ -200,7 +200,7 @@ const ClientBookingsPage = () => {
                         <SheetTrigger asChild>
                             <Button>New Booking</Button>
                         </SheetTrigger>
-                        <SheetContent className="w-[100%] sm:max-w-2xl overflow-y-auto p-6">
+                        <SheetContent className="w-[100%] sm:max-w-4xl overflow-y-auto p-6">
                             <SheetHeader className="mb-6">
                                 <SheetTitle>Create New Shipment</SheetTitle>
                             </SheetHeader>
@@ -212,12 +212,23 @@ const ClientBookingsPage = () => {
                     </Sheet>
                 </div>
 
-                <DataTable
-                    data={bookings}
-                    columns={columns as any}
-                    searchPlaceholder="Search bookings..."
-                    rowsPerPage={10}
-                />
+                {bookings.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <div className="text-4xl mb-4">🚢</div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Bookings Yet</h3>
+                        <p className="text-gray-500 mb-6">Create your first shipment booking to get started.</p>
+                        <Button onClick={() => setIsCreateOpen(true)}>
+                            Create New Booking
+                        </Button>
+                    </div>
+                ) : (
+                    <DataTable
+                        data={bookings}
+                        columns={columns as any}
+                        searchPlaceholder="Search bookings..."
+                        rowsPerPage={10}
+                    />
+                )}
             </div>
 
             <Footer />
