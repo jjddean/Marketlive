@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
+import type * as authHelpers from "../authHelpers.js";
 import type * as billing from "../billing.js";
 import type * as bookings from "../bookings.js";
 import type * as debug_email from "../debug_email.js";
@@ -42,6 +43,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   ai: typeof ai;
+  authHelpers: typeof authHelpers;
   billing: typeof billing;
   bookings: typeof bookings;
   debug_email: typeof debug_email;

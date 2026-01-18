@@ -247,7 +247,35 @@ export const listDocuments = query({
     type: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let docs = await ctx.db.query("documents").order("desc").collect();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    // Get current user's org from JWT
+    const orgId = (identity as any).org_id;
+
+    let docs;
+    if (orgId) {
+      // Filter by organization
+      docs = await ctx.db
+        .query("documents")
+        .withIndex("byOrgId", (q) => q.eq("orgId", orgId))
+        .order("desc")
+        .collect();
+    } else {
+      // Personal account - filter by userId
+      const user = await ctx.db
+        .query("users")
+        .withIndex("byExternalId", (q) => q.eq("externalId", identity.subject))
+        .unique();
+
+      if (!user) return [];
+
+      docs = await ctx.db
+        .query("documents")
+        .withIndex("byUserId", (q) => q.eq("userId", user._id))
+        .order("desc")
+        .collect();
+    }
 
     if (args.status) {
       docs = docs.filter(d => d.status === args.status);

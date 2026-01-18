@@ -120,7 +120,34 @@ export const createInstantQuoteAndBooking = mutation({
 export const listQuotes = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("quotes").order("desc").collect();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    // Get current user's org from JWT
+    const orgId = (identity as any).org_id;
+
+    if (orgId) {
+      // Filter by organization
+      return await ctx.db
+        .query("quotes")
+        .withIndex("byOrgId", (q) => q.eq("orgId", orgId))
+        .order("desc")
+        .collect();
+    } else {
+      // Personal account - filter by userId
+      const user = await ctx.db
+        .query("users")
+        .withIndex("byExternalId", (q) => q.eq("externalId", identity.subject))
+        .unique();
+
+      if (!user) return [];
+
+      return await ctx.db
+        .query("quotes")
+        .withIndex("byUserId", (q) => q.eq("userId", user._id))
+        .order("desc")
+        .collect();
+    }
   },
 });
 

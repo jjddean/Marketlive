@@ -130,10 +130,14 @@ export const getShipment = query({
 export const listShipments = query({
   args: { search: v.optional(v.string()), onlyMine: v.optional(v.boolean()) },
   handler: async (ctx, { search, onlyMine }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    // Get current user's org from JWT
+    const orgId = (identity as any).org_id;
+
     let list = [] as any[];
     if (onlyMine) {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) return [];
       const user = await ctx.db
         .query("users")
         .withIndex("byExternalId", (q) => q.eq("externalId", identity.subject))
@@ -143,8 +147,23 @@ export const listShipments = query({
         .query("shipments")
         .withIndex("byUserId", (q) => q.eq("userId", user._id))
         .collect();
+    } else if (orgId) {
+      // Filter by organization
+      list = await ctx.db
+        .query("shipments")
+        .withIndex("byOrgId", (q) => q.eq("orgId", orgId))
+        .collect();
     } else {
-      list = await ctx.db.query("shipments").collect();
+      // Personal account - filter by userId
+      const user = await ctx.db
+        .query("users")
+        .withIndex("byExternalId", (q) => q.eq("externalId", identity.subject))
+        .unique();
+      if (!user) return [];
+      list = await ctx.db
+        .query("shipments")
+        .withIndex("byUserId", (q) => q.eq("userId", user._id))
+        .collect();
     }
 
     if (!search || search.trim() === "") return list;

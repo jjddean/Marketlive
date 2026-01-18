@@ -190,11 +190,38 @@ export const getBooking = query({
   },
 });
 
-// Admin: list all bookings (for stats/dashboard)
+// Admin: list all bookings for the current org (for stats/dashboard)
 export const listBookings = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("bookings").order("desc").collect();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    // Get current user's org from JWT
+    const orgId = (identity as any).org_id;
+
+    if (orgId) {
+      // Filter by organization
+      return await ctx.db
+        .query("bookings")
+        .withIndex("byOrgId", (q) => q.eq("orgId", orgId))
+        .order("desc")
+        .collect();
+    } else {
+      // Personal account - filter by userId
+      const user = await ctx.db
+        .query("users")
+        .withIndex("byExternalId", (q) => q.eq("externalId", identity.subject))
+        .unique();
+
+      if (!user) return [];
+
+      return await ctx.db
+        .query("bookings")
+        .withIndex("byUserId", (q) => q.eq("userId", user._id))
+        .order("desc")
+        .collect();
+    }
   },
 });
 
