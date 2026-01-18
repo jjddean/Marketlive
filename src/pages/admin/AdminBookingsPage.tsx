@@ -7,11 +7,7 @@ import { toast } from 'sonner';
 import { Check, X, Truck, FileText } from 'lucide-react';
 
 const AdminBookingsPage = () => {
-    const bookings = useQuery(api.bookings.listBookings) || []; // Using listMyBookings for now as admin check logic isn't strictly enforced on backend query level yet for listAll
-
-    // In a real app, we'd use api.bookings.listAllBookings protected by admin auth
-    // For now, we simulate admin view using the existing list query 
-    // (assuming the user is an admin they can see everything or we mock it)
+    const bookings = useQuery(api.admin.listAllBookings) || [];
 
     const updateStatus = useMutation(api.bookings.updateBookingStatus);
 

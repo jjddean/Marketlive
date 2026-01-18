@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import LiveRateComparison from '@/components/shipping/LiveRateComparison';
 import { type RateRequest, type CarrierRate } from '@/services/carriers';
 import { CO2Badge } from '@/components/ui/co2-badge';
 import { LandedCostTool } from '@/components/ui/landed-cost-tool';
+import {
+  quoteStep1Schema,
+  quoteStep2Schema,
+  quoteStep3Schema,
+  quoteStep4Schema
+} from '@/lib/validation/quoteSchema';
+import { z } from 'zod';
 
 interface QuoteFormData {
   origin: string;
@@ -50,6 +58,8 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
     additionalServices: [],
     contactInfo: { name: '', email: '', phone: '', company: '' }
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [selectedRate, setSelectedRate] = useState<CarrierRate | null>(null);
@@ -107,6 +117,14 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
+    // Clear error for this field
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
   };
 
   const handleServiceToggle = (service: string) => {
@@ -130,15 +148,47 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
     });
   };
 
+  const validateStep = (step: number) => {
+    try {
+      if (step === 1) {
+        quoteStep1Schema.parse(formData);
+      } else if (step === 2) {
+        quoteStep2Schema.parse(formData);
+      } else if (step === 4) {
+        quoteStep4Schema.parse(formData);
+      }
+      setErrors({});
+      return true;
+    } catch (error: any) {
+      // Safe error handling to prevent crash
+      const newErrors: Record<string, string> = {};
+      if (error && typeof error === 'object' && Array.isArray(error.errors)) {
+        error.errors.forEach((err: any) => {
+          if (err.path && err.message) {
+            const path = err.path.join('.');
+            newErrors[path] = err.message;
+          }
+        });
+        setErrors(newErrors);
+      }
+      return false;
+    }
+  };
+
   const nextStep = () => {
-    const next = Math.min(currentStep + 1, totalSteps);
-    setCurrentStep(next);
-    onStepChange?.(next);
+    if (validateStep(currentStep)) {
+      const next = Math.min(currentStep + 1, totalSteps);
+      setCurrentStep(next);
+      onStepChange?.(next);
+    } else {
+      toast.error("Please fill in all required fields correctly.");
+    }
   };
   const prevStep = () => {
     const prev = Math.max(currentStep - 1, 1);
     setCurrentStep(prev);
     onStepChange?.(prev);
+    setErrors({}); // Clear errors when going back
   };
 
   const renderStep = () => {
@@ -162,6 +212,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                   <option value="Birmingham, UK">Birmingham, UK</option>
                   <option value="Liverpool, UK">Liverpool, UK</option>
                 </select>
+                {errors.origin && <p className="text-red-500 text-xs mt-1">{errors.origin}</p>}
               </div>
 
               <div>
@@ -178,6 +229,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                   <option value="Shanghai, CN">Shanghai, CN</option>
                   <option value="Dubai, AE">Dubai, AE</option>
                 </select>
+                {errors.destination && <p className="text-red-500 text-xs mt-1">{errors.destination}</p>}
               </div>
             </div>
 
@@ -210,6 +262,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                   <option value="fragile">Fragile</option>
                 </select>
               </div>
+
             </div>
           </div >
         );
@@ -228,6 +281,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Enter weight in kg"
               />
+              {errors.weight && <p className="text-red-500 text-xs mt-1">{errors.weight}</p>}
             </div>
 
             <div>
@@ -255,6 +309,9 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                   placeholder="Height"
                 />
               </div>
+              {(errors['dimensions.length'] || errors['dimensions.width'] || errors['dimensions.height']) && (
+                <p className="text-red-500 text-xs mt-1">All dimensions are required and must be valid numbers</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -360,6 +417,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                   placeholder="Enter your full name"
                   required
                 />
+                {errors['contactInfo.name'] && <p className="text-red-500 text-xs mt-1">{errors['contactInfo.name']}</p>}
               </div>
 
               <div>
@@ -385,6 +443,7 @@ const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmit, onCancel,
                   placeholder="Enter email address"
                   required
                 />
+                {errors['contactInfo.email'] && <p className="text-red-500 text-xs mt-1">{errors['contactInfo.email']}</p>}
               </div>
 
               <div>

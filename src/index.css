@@ -86,6 +86,11 @@
   }
 }
 
+/* Ensure Sonner toasts are visible above everything */
+[data-sonner-toaster] {
+  z-index: 10000 !important;
+}
+
 @layer components {
 
   /* Layout */

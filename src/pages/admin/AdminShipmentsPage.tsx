@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Navigation, Package } from 'lucide-react';
 
 const AdminShipmentsPage = () => {
-    const shipments = useQuery(api.shipments.listShipments, {}) || [];
+    const shipments = useQuery(api.admin.listAllShipments, {}) || [];
 
     const columns = [
         {
@@ -28,12 +28,12 @@ const AdminShipmentsPage = () => {
             )
         },
         {
-            key: 'tracking',
+            key: 'currentLocation',
             header: 'Current Location',
-            render: (tracking: any) => (
+            render: (location: any) => (
                 <div className="flex items-center text-sm text-gray-600">
                     <MapPin className="h-4 w-4 mr-1 text-gray-400" />
-                    {tracking?.currentLocation?.city || 'In Transit'}, {tracking?.currentLocation?.country || ''}
+                    {location?.city || 'In Transit'}, {location?.country || ''}
                 </div>
             )
         },
@@ -80,7 +80,7 @@ const AdminShipmentsPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <DataTable
                     data={shipments}
-                    columns={columns}
+                    columns={columns as any}
                     searchPlaceholder="Search tracking number or carrier..."
                     rowsPerPage={10}
                 />

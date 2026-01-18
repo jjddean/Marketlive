@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const createBooking = mutation({
   args: {
@@ -137,6 +138,25 @@ export const createBooking = mutation({
       // We do not rethrow, so booking succeeds.
     }
 
+    // Send Confirmation Email
+    await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
+      to: args.customerDetails.email,
+      subject: `Booking Confirmation: ${bookingId}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #003366;">Booking Received</h1>
+          <p>Dear ${args.customerDetails.name},</p>
+          <p>Your booking <strong>${bookingId}</strong> has been received and is pending approval.</p>
+          <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Origin:</strong> ${args.pickupDetails.address}</p>
+            <p><strong>Destination:</strong> ${args.deliveryDetails.address}</p>
+          </div>
+          <p>We will notify you once your shipment is fully approved.</p>
+          <p>Best regards,<br/>The MarketLive Team</p>
+        </div>
+      `
+    });
+
     return { bookingId, docId };
   },
 });
@@ -199,6 +219,23 @@ export const updateBookingStatus = mutation({
       notes,
       updatedAt: Date.now(),
     });
+
+    if (status === 'confirmed') {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmail, {
+        to: booking.customerDetails.email,
+        subject: `Booking Confirmed: ${booking.bookingId}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #003366;">Booking Confirmed!</h1>
+            <p>Dear ${booking.customerDetails.name},</p>
+            <p>Good news! Your booking <strong>${booking.bookingId}</strong> has been confirmed.</p>
+            <p>Our team has verified your route and cargo details. A carrier has been assigned.</p>
+            <p><strong>Next Steps:</strong> You can track your shipment live on our dashboard.</p>
+            <a href="${process.env.CONVEX_SITE_URL}/dashboard" style="display:inline-block; background:#003366; color:white; padding:10px 20px; text-decoration:none; border-radius:5px; margin-top:20px;">View Dashboard</a>
+          </div>
+        `
+      });
+    }
 
     return booking._id;
   },

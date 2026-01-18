@@ -1,16 +1,56 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { UserProfile } from '@clerk/clerk-react';
 import Footer from '@/components/layout/Footer';
-import { useQuery } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState('invoices');
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Live payment data from Convex
   const livePayments = useQuery(api.paymentAttempts.listMyPayments) || [];
+
+  // Checkout Action
+  const createCheckout = useAction(api.billing.createCheckoutSession);
+  const completeSubscription = useMutation(api.payments.completeSubscription);
+
+  useEffect(() => {
+    // Check for success query param
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('success')) {
+      completeSubscription({})
+        .then(() => {
+          alert("Payment Successful! Subscription Active.");
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
+        .catch((e) => console.error("Failed to complete:", e));
+    }
+    if (query.get('canceled')) {
+      alert("Payment canceled.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handlePayInvoice = async (invoiceId: string) => {
+    setProcessingId(invoiceId);
+    try {
+      const { url } = await createCheckout({ type: 'invoice', invoiceId });
+      if (url) {
+        window.location.href = url;
+      } else {
+        alert("Error: No Checkout URL returned.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Failed to pay invoice: " + (e.message || "Unknown error"));
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // Hardcoded fallback invoices
   const HARDCODED_INVOICES = [
@@ -100,13 +140,18 @@ const PaymentsPage = () => {
     },
     { key: 'dueDate' as keyof typeof invoices[0], header: 'Due Date', sortable: true },
     {
-      key: 'id' as keyof typeof invoices[0],
+      key: 'actions' as keyof typeof invoices[0],
       header: 'Actions',
       render: (value: string, row: typeof invoices[0]) => (
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm">View</Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            // Simple View Logic
+            alert(`Invoice Details:\nID: ${row.id}\nAmount: £${row.amount}\nDescription: ${row.description}\nStatus: ${row.status}`);
+          }}>View</Button>
           {row.status === 'Pending' && (
-            <Button size="sm">Pay Now</Button>
+            <Button size="sm" onClick={() => handlePayInvoice(row.id)} disabled={processingId === row.id}>
+              {processingId === row.id ? 'Processing...' : 'Pay Now'}
+            </Button>
           )}
         </div>
       )
@@ -126,53 +171,6 @@ const PaymentsPage = () => {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Financial Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                  <span className="text-red-600 text-sm">⚠️</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Outstanding Balance</p>
-                <p className="text-2xl font-semibold text-red-600">£4,325.50</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Button className="w-full">Pay Outstanding</Button>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <span className="text-green-600 text-sm">✅</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Paid This Month</p>
-                <p className="text-2xl font-semibold text-green-600">£5,151.00</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span className="text-blue-600 text-sm">📊</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Average Invoice</p>
-                <p className="text-2xl font-semibold text-blue-600">£2,369</p>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Tab Navigation */}
         <div className="mb-6">
@@ -188,14 +186,15 @@ const PaymentsPage = () => {
                 Invoices & Payments
               </button>
               <button
-                onClick={() => setActiveTab('methods')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'methods'
+                onClick={() => setActiveTab('subscription')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'subscription'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
-                Payment Methods
+                My Subscription
               </button>
+
             </nav>
           </div>
         </div>
@@ -204,7 +203,17 @@ const PaymentsPage = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">Invoices & Payments</h2>
-              <Button variant="outline">Export Invoices</Button>
+              <Button variant="outline" onClick={() => {
+                const csvContent = "data:text/csv;charset=utf-8,"
+                  + ["ID,Date,Description,Amount,Status"].join(",") + "\n"
+                  + invoices.map(row => `${row.id},${row.date},"${row.description}",${row.amount},${row.status}`).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "invoices.csv");
+                document.body.appendChild(link);
+                link.click();
+              }}>Export Invoices</Button>
             </div>
 
             <DataTable
@@ -216,64 +225,13 @@ const PaymentsPage = () => {
           </div>
         )}
 
-        {activeTab === 'methods' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Payment Methods</h2>
-              <Button>Add Payment Method</Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              {paymentMethods.map((method, index) => (
-                <div key={index} className={`bg-white p-6 rounded-lg shadow-sm border-2 ${method.default ? 'border-primary' : 'border-gray-200'
-                  }`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <span className="text-lg">{method.type === 'Credit Card' ? '💳' : '🏦'}</span>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900">{method.type}</h3>
-                        <p className="text-xs text-gray-500">
-                          {method.type === 'Credit Card'
-                            ? `${method.brand} •••• ${method.last4}`
-                            : `${method.bank} •••• ${method.last4}`}
-                        </p>
-                      </div>
-                    </div>
-                    {method.default && (
-                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-primary text-white">
-                        Default
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex space-x-2">
-                    {!method.default && (
-                      <Button variant="outline" size="sm">Make Default</Button>
-                    )}
-                    <Button variant="outline" size="sm">Edit</Button>
-                    <Button variant="outline" size="sm">Remove</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Billing Address */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Billing Address</h3>
-                <Button variant="outline" size="sm">Edit Address</Button>
-              </div>
-              <div className="text-sm text-gray-600">
-                <p>MarketLive Freight Services Ltd.</p>
-                <p>123 Commerce Street, Suite 400</p>
-                <p>London, EC1A 1BB</p>
-                <p>United Kingdom</p>
-              </div>
-            </div>
+        {activeTab === 'subscription' && (
+          <div className="flex justify-center py-8">
+            <UserProfile />
           </div>
         )}
+
+
       </div>
 
       <Footer />

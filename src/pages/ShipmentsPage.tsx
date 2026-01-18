@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import Footer from '@/components/layout/Footer';
 import AdvancedSearch from '@/components/ui/advanced-search';
 import { LiveVesselMap } from '@/components/ui/live-vessel-map';
+import { ShipmentMap } from '@/components/ui/ShipmentMap';
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Sparkles, Mail } from "lucide-react";
@@ -137,7 +138,27 @@ const ShipmentsPage = () => {
       eta: s.estimatedDelivery,
       carrier: s.carrier,
       value: s.shipmentDetails?.value || '',
-      container: s.trackingNumber
+      container: s.trackingNumber,
+      progress: (() => {
+        try {
+          // Calculate progress based on Time Elasped
+          const start = s.createdAt || Date.now();
+          const end = new Date(s.estimatedDelivery).getTime();
+          const now = Date.now();
+
+          if (!end || isNaN(end)) return 25; // Default if no valid ETA
+          if (now >= end) return 100;
+          if (now <= start) return 5;
+
+          const totalDuration = end - start;
+          const elapsed = now - start;
+          // Clamp between 5% and 95% while in transit
+          const p = Math.round((elapsed / totalDuration) * 100);
+          return Math.max(5, Math.min(95, p));
+        } catch (e) {
+          return 25;
+        }
+      })()
     })),
     completed: liveData.filter((s: any) => s.status === 'Delivered').map((s: any) => ({
       id: s.shipmentId,
@@ -390,32 +411,46 @@ const ShipmentsPage = () => {
 
         {/* Real-Time Tracking for Active Shipments */}
         {activeTab === 'active' && (
-          <div className="mt-8 grid grid-cols-1 gap-6">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <span className="relative flex h-3 w-3 mr-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-              </span>
-              Live Fleet Tracking
-            </h3>
-            {(liveData && liveData.filter((s: any) => s.status !== 'Delivered').length > 0) ? (
-              liveData.filter((s: any) => s.status !== 'Delivered').slice(0, 2).map((s: any) => (
-                <LiveVesselMap
-                  key={s.shipmentId}
-                  shipmentId={s.shipmentId}
-                  origin={s.shipmentDetails?.origin || 'Unknown'}
-                  destination={s.shipmentDetails?.destination || 'Unknown'}
-                  progress={Math.floor(Math.random() * 60) + 20} // Mock progress for live feel
-                />
-              ))
-            ) : (
-              <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <LiveVesselMap shipmentId="SH-2024-001" origin="London, UK" destination="Hamburg, DE" progress={72} />
-                  <LiveVesselMap shipmentId="SH-2024-002" origin="Shanghai, CN" destination="Felixstowe, UK" progress={35} />
-                </div>
-              </>
-            )}
+          <div className="mt-8 space-y-8">
+            {/* Visual Progress Trackers */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+                <span className="relative flex h-3 w-3 mr-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                Live Fleet Tracking
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {(liveData && liveData.filter((s: any) => s.status !== 'Delivered').length > 0) ? (
+                  liveData.filter((s: any) => s.status !== 'Delivered').slice(0, 2).map((s: any) => (
+                    <LiveVesselMap
+                      key={s.shipmentId}
+                      shipmentId={s.shipmentId}
+                      origin={s.shipmentDetails?.origin || 'Unknown'}
+                      destination={s.shipmentDetails?.destination || 'Unknown'}
+                      progress={s.progress || Math.floor(Math.random() * 60) + 20}
+                    />
+                  ))
+                ) : (
+                  <>
+                    <LiveVesselMap shipmentId="SH-2024-001" origin="London, UK" destination="Hamburg, DE" progress={72} />
+                    <LiveVesselMap shipmentId="SH-2024-002" origin="Shanghai, CN" destination="Felixstowe, UK" progress={35} />
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Global Map View */}
+            <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200 h-[500px]">
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="font-semibold text-gray-900">Global Fleet Map</h3>
+                <span className="text-xs text-gray-500">Real-time GPS Visualization</span>
+              </div>
+              <div className="h-[440px] w-full rounded-b-lg overflow-hidden relative z-0">
+                <ShipmentMap />
+              </div>
+            </div>
           </div>
         )}
       </div>

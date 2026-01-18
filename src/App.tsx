@@ -6,8 +6,10 @@ import {
   SignUpButton,
   UserButton,
   ClerkProvider,
-  useAuth
+  useAuth,
+  useUser
 } from '@clerk/clerk-react';
+import { Button } from '@/components/ui/button';
 import { Routes, Route, Navigate, useLocation, BrowserRouter } from 'react-router-dom';
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
@@ -38,6 +40,7 @@ import AdminDocumentsPage from './pages/admin/AdminDocumentsPage';
 import AdminCompliancePage from './pages/admin/AdminCompliancePage';
 import AdminCustomersPage from './pages/admin/AdminCustomersPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import DocumentPrintPage from './pages/DocumentPrintPage';
 
 // Initialization
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -69,7 +72,7 @@ function Layout({ children }: LayoutProps) {
       {!isAdmin && <Navbar />}
       {!isAdmin && <MobileNavigation />}
       <AIAssistant />
-      <Toaster richColors position="bottom-right" />
+      <Toaster richColors position="bottom-right" style={{ zIndex: 99999 }} />
       <main className="min-h-screen">{children}</main>
     </>
   );
@@ -98,6 +101,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Admin Route Wrapper
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoaded } = useUser();
+
+  if (!isLoaded) return <div className="p-20 text-center">Loading...</div>;
+
+  const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '').split(',');
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
+
+  if (!user || !adminEmails.includes(userEmail || '')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col">
+        <h1 className="text-3xl font-bold text-red-600 mb-2">Access Denied</h1>
+        <p className="text-gray-600 mb-6">You do not have permission to view the Admin Portal.</p>
+        <Button onClick={() => window.location.href = '/dashboard'}>Return to Dashboard</Button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 // --- Main App Component ---
 
 export default function App() {
@@ -122,19 +147,21 @@ export default function App() {
               <Route path="/shared/:token" element={<SharedDocumentPage />} />
               <Route path="/api/docusign/callback" element={<DocusignCallbackPage />} />
 
-              {/* Admin Routes (Wrapped in ProtectedRoute & AdminLayout) */}
+              {/* Admin Routes (Wrapped in ProtectedRoute & AdminRoute & AdminLayout) */}
               <Route path="/admin/*" element={
                 <ProtectedRoute>
-                  <AdminLayout>
-                    <Routes>
-                      <Route index element={<AdminDashboardPage />} />
-                      <Route path="bookings" element={<AdminBookingsPage />} />
-                      <Route path="shipments" element={<AdminShipmentsPage />} />
-                      <Route path="carriers" element={<AdminCarriersPage />} />
-                      <Route path="documents" element={<AdminDocumentsPage />} />
-                      <Route path="settings" element={<AdminSettingsPage />} />
-                    </Routes>
-                  </AdminLayout>
+                  <AdminRoute>
+                    <AdminLayout>
+                      <Routes>
+                        <Route index element={<AdminDashboardPage />} />
+                        <Route path="bookings" element={<AdminBookingsPage />} />
+                        <Route path="shipments" element={<AdminShipmentsPage />} />
+                        <Route path="carriers" element={<AdminCarriersPage />} />
+                        <Route path="documents" element={<AdminDocumentsPage />} />
+                        <Route path="settings" element={<AdminSettingsPage />} />
+                      </Routes>
+                    </AdminLayout>
+                  </AdminRoute>
                 </ProtectedRoute>
               } />
 
@@ -147,6 +174,7 @@ export default function App() {
               <Route path="/bookings" element={<ClientBookingsPage />} />
               <Route path="/payments" element={<PaymentsPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/print/:documentId" element={<DocumentPrintPage />} />
               <Route path="/compliance" element={<CompliancePage />} />
               <Route path="/reports" element={<ReportsPage />} />
 

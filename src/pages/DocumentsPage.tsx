@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MediaCardHeader from '@/components/ui/media-card-header';
 import DataTable from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -27,10 +28,11 @@ import {
 } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, FileBadge, FileWarning, Upload, Eye, Send, RefreshCw, CheckCircle, Share2 } from 'lucide-react';
+import { FileText, FileBadge, FileWarning, Upload, Eye, Send, RefreshCw, CheckCircle, Share2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DocumentsPage = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('documents');
     const [docTypeFilter, setDocTypeFilter] = useState('all');
 
@@ -213,6 +215,9 @@ const DocumentsPage = () => {
                 <div className="flex space-x-2">
                     <Button variant="ghost" size="icon" onClick={() => handleOpenDetail(row)} title="View Details">
                         <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => navigate(`/documents/print/${row._id}`)} title="Print / PDF">
+                        <Printer className="h-4 w-4" />
                     </Button>
                     {row.docusign?.envelopeId ? (
                         <Button variant="ghost" size="icon" onClick={() => handleRefreshStatus(row)} disabled={refreshing} title="Refresh Status">

@@ -2,6 +2,8 @@
 
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+// Force rebuild 2
+
 import { paymentAttemptSchemaValidator } from "./paymentAttemptTypes";
 
 export default defineSchema({
@@ -10,6 +12,9 @@ export default defineSchema({
     email: v.optional(v.string()),
     // this the Clerk ID, stored in the subject JWT field
     externalId: v.string(),
+    subscriptionTier: v.optional(v.string()), // "free", "pro"
+    subscriptionStatus: v.optional(v.string()), // "active", "canceled", "past_due"
+    stripeCustomerId: v.optional(v.string()),
   }).index("byExternalId", ["externalId"]),
 
   paymentAttempts: defineTable(paymentAttemptSchemaValidator)
