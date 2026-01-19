@@ -36,16 +36,8 @@ const Navbar: React.FC = () => {
     { label: 'Resources', path: '/resources', protected: false, hideOnAuth: true },
     { label: 'About', path: '/about', protected: false, hideOnAuth: true },
     { label: 'Contact', path: '/contact', protected: false },
-
-    // App pages - always show (protected handles visibility)
+    // Dashboard link only when signed in (sidebar has the rest)
     { label: 'Dashboard', path: '/dashboard', protected: true },
-    { label: 'Shipments', path: '/shipments', protected: true },
-    { label: 'Bookings', path: '/bookings', protected: true },
-    { label: 'Quotes', path: '/quotes', protected: true },
-    { label: 'Payments', path: '/payments', protected: true },
-    { label: 'Documents', path: '/documents', protected: true },
-    { label: 'Compliance', path: '/compliance', protected: true },
-    { label: 'Reports', path: '/reports', protected: true },
   ];
   const toggleSubmenu = (label: string) => {
     if (activeMenu === label) {
@@ -123,20 +115,9 @@ const Navbar: React.FC = () => {
 
         <div className="auth-section">
           <SignedIn>
-            <div className="flex items-center space-x-4">
-              <OrganizationSwitcher
-                hidePersonal={false}
-                afterCreateOrganizationUrl="/dashboard"
-                afterSelectOrganizationUrl="/dashboard"
-                appearance={{
-                  elements: {
-                    rootBox: "flex items-center",
-                    organizationSwitcherTrigger: "text-sm"
-                  }
-                }}
-              />
+            <div className="flex items-center space-x-3">
               <NotificationCenter />
-              <UserButton />
+              <UserButton afterSignOutUrl="/" />
             </div>
           </SignedIn>
           <SignedOut>

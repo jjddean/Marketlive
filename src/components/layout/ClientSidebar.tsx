@@ -77,7 +77,7 @@ const ClientSidebar = ({ children }: ClientSidebarProps) => {
                                 key={item.name}
                                 to={item.href}
                                 className={`
-                                    flex items-center px-3 py-2.5 mb-1 rounded-lg transition-colors
+                                    flex items-center px-2.5 py-2 mb-0.5 rounded-md transition-colors text-sm
                                     ${isActive
                                         ? 'bg-blue-50 text-blue-600'
                                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
@@ -85,9 +85,9 @@ const ClientSidebar = ({ children }: ClientSidebarProps) => {
                                 `}
                                 title={isCollapsed ? item.name : undefined}
                             >
-                                <item.icon className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
+                                <item.icon className={`h-4 w-4 ${isCollapsed ? '' : 'mr-2'}`} />
                                 {!isCollapsed && (
-                                    <span className="font-medium">{item.name}</span>
+                                    <span className="text-sm">{item.name}</span>
                                 )}
                             </NavLink>
                         );
@@ -106,65 +106,27 @@ const ClientSidebar = ({ children }: ClientSidebarProps) => {
                     )}
                 </button>
 
-                {/* User Section at Bottom */}
-                <div className={`border-t border-gray-200 p-3 ${isCollapsed ? 'flex justify-center' : ''}`}>
-                    {!isCollapsed && (
-                        <div className="mb-3">
-                            <OrganizationSwitcher
-                                hidePersonal={false}
-                                afterSelectOrganizationUrl="/dashboard"
-                                appearance={{
-                                    elements: {
-                                        rootBox: "w-full",
-                                        organizationSwitcherTrigger: "w-full justify-between text-sm"
-                                    }
-                                }}
-                            />
-                        </div>
-                    )}
-                    <div className={`flex items-center ${isCollapsed ? '' : 'space-x-3'}`}>
-                        <UserButton afterSignOutUrl="/" />
+                {/* Organization Switcher at Bottom */}
+                {!isCollapsed && (
+                    <div className="border-t border-gray-200 p-3">
+                        <OrganizationSwitcher
+                            hidePersonal={false}
+                            afterSelectOrganizationUrl="/dashboard"
+                            appearance={{
+                                elements: {
+                                    rootBox: "w-full",
+                                    organizationSwitcherTrigger: "w-full justify-between text-xs"
+                                }
+                            }}
+                        />
                     </div>
-                </div>
+                )}
             </aside>
 
             {/* Main Content Area */}
             <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
-                {/* Top Bar */}
-                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sticky top-0 z-30">
-                    {/* Mobile menu button */}
-                    <button
-                        onClick={() => setIsMobileOpen(true)}
-                        className="md:hidden p-2 rounded-lg hover:bg-gray-100"
-                    >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </button>
-
-                    {/* Page breadcrumb / title could go here */}
-                    <div className="hidden md:block" />
-
-                    {/* Right side - notifications */}
-                    <div className="flex items-center space-x-4">
-                        <NotificationCenter />
-                        {/* Mobile: show org switcher and user button in top bar */}
-                        <div className="md:hidden flex items-center space-x-2">
-                            <OrganizationSwitcher
-                                hidePersonal={false}
-                                appearance={{
-                                    elements: {
-                                        organizationSwitcherTrigger: "text-sm"
-                                    }
-                                }}
-                            />
-                            <UserButton afterSignOutUrl="/" />
-                        </div>
-                    </div>
-                </header>
-
-                {/* Page Content */}
-                <main className="p-6">
+                {/* Page Content - No extra top bar needed, navbar handles it */}
+                <main className="p-6 pt-4">
                     {children}
                 </main>
             </div>
